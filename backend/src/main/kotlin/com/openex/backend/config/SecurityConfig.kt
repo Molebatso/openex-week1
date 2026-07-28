@@ -39,20 +39,35 @@ class SecurityConfig(
         config.authenticationManager
 
     @Bean
-    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-        http
-            .csrf { it.disable() }
-            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-            .authorizeHttpRequests { auth ->
-                auth
-                    .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                    .requestMatchers("/actuator/health").permitAll()
-                    .anyRequest().authenticated()
-            }
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+    http
+        .csrf { it.disable() }
+        .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+        .authorizeHttpRequests { auth ->
+            auth
+                // Authentication
+                .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
 
-        return http.build()
-    }
+                // Swagger
+                .requestMatchers(
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/v3/api-docs/**"
+                ).permitAll()
+
+                // Actuator
+                .requestMatchers("/actuator/health").permitAll()
+
+                // Everything else requires JWT
+                .anyRequest().authenticated()
+        }
+        .authenticationProvider(authenticationProvider())
+        .addFilterBefore(
+            jwtAuthenticationFilter,
+            UsernamePasswordAuthenticationFilter::class.java
+        )
+
+    return http.build()
+}
 }
