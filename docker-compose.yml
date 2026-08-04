@@ -1,6 +1,21 @@
 version: "3.9"
 
+# OpenEx 3.0 — Full Stack
+# Starts all five services with a single command: docker compose up --build
+#
+# Services:
+#   postgres      — PostgreSQL 16 database
+#   backend       — Kotlin/Spring Boot matching engine + REST API (port 8080)
+#   frontend      — React trading terminal served via nginx (port 3000)
+#   ai-service    — Python/FastAPI AI Astromech assistant (port 8001)
+#   ollama        — Local Ollama LLM runtime (port 11434)
+#
+# After first boot, pull the AI model:
+#   docker compose exec ollama ollama pull llama3.2
+
 services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: openex-postgres
@@ -19,6 +34,7 @@ services:
       retries: 5
       start_period: 30s
 
+  # ── Kotlin/Spring Boot backend ──────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -30,12 +46,69 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openex
       SPRING_DATASOURCE_USERNAME: openex
       SPRING_DATASOURCE_PASSWORD: openex_secret
+      # Change JWT_SECRET in production — must be at least 512 bits
       JWT_SECRET: "openex-super-secret-key-change-this-in-production-minimum-512-bits"
       JWT_EXPIRATION_MS: 86400000
     depends_on:
       postgres:
         condition: service_healthy
     restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # ── React frontend (nginx) ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: openex-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Python AI Astromech microservice ───────────────────────────────────────
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: openex-ai
+    ports:
+      - "8001:8001"
+    environment:
+      BACKEND_URL: http://backend:8080
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
+      CORS_ORIGINS: "*"
+    depends_on:
+      - backend
+      - ollama
+    restart: on-failure
+
+  # ── Ollama local LLM runtime ───────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: openex-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    # GPU support (optional — remove deploy section if no GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
 
 volumes:
   postgres_data:
+  ollama_data:

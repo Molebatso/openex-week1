@@ -1,0 +1,292 @@
+OpenEx 3.0 – Continue Development from Completed Week 1
+
+I have uploaded my completed Week 1 OpenEx 3.0 project. Before making any changes, analyze the entire project structure and understand the existing implementation.
+
+Current Project Status (Week 1 Complete)
+
+The backend is fully functional and should not be rebuilt from scratch.
+
+The following components are already completed and working:
+
+Kotlin + Spring Boot backend
+PostgreSQL database
+Flyway database migrations
+Spring Security with JWT authentication
+User registration and login APIs
+Password encryption using BCrypt
+Hibernate/JPA configuration
+Swagger/OpenAPI documentation
+Docker configuration
+Gradle build configuration
+Initial database schema including Users, Wallets, Orders, Trades and Ledger tables
+Backend successfully starts on localhost:8080
+Database migrations execute successfully
+Swagger UI is accessible and API endpoints are functional
+
+Do not recreate or replace any existing Week 1 functionality. Extend the current codebase while following its existing architecture, coding style, package structure and naming conventions.
+
+Objective
+
+Continue development by implementing Week 2 and Week 3 only.
+
+The existing backend should remain stable and fully functional.
+
+Follow clean architecture, SOLID principles, REST best practices, proper error handling, validation, logging, and unit testing.
+
+WEEK 2 — Holonet (Real-Time Trading Terminal)
+Backend
+
+Implement a complete real-time trading system.
+
+Matching Engine
+
+Implement a production-style matching engine capable of processing:
+
+Market Buy Orders
+Market Sell Orders
+Limit Buy Orders
+Limit Sell Orders
+
+Support:
+
+Price-Time Priority
+Partial fills
+Full fills
+Remaining order quantities
+Order cancellation
+Order status updates
+Trade generation
+
+Automatically create Trade records whenever orders are matched.
+
+Update wallet balances and the double-entry ledger after successful executions.
+
+Order Book
+
+Maintain an in-memory order book.
+
+Requirements:
+
+Buy orders sorted by highest price first
+Sell orders sorted by lowest price first
+FIFO for identical prices
+Efficient insertion and matching
+WebSocket
+
+Implement WebSocket support using Spring Boot.
+
+Broadcast in real time:
+
+New orders
+Updated order book
+Executed trades
+Latest market price
+Market statistics
+
+Clients should receive updates instantly without refreshing.
+
+REST APIs
+
+Implement endpoints such as:
+
+POST /api/orders
+GET /api/orders
+GET /api/orders/{id}
+DELETE /api/orders/{id}
+GET /api/orderbook
+GET /api/trades
+GET /api/market/latest-price
+GET /api/market/stats
+
+All protected endpoints must require JWT authentication.
+
+Validation
+
+Validate:
+
+Positive quantities
+Positive prices
+Wallet balances
+Asset availability
+Invalid order types
+Invalid symbols
+Duplicate requests
+
+Return meaningful HTTP responses.
+
+Idempotency
+
+Implement support for:
+
+Idempotency-Key request header.
+
+Submitting the same request multiple times should only create one order.
+
+Unit Testing
+
+Create tests for:
+
+Matching engine
+Partial fills
+Full fills
+FIFO ordering
+Market orders
+Limit orders
+Wallet updates
+Ledger entries
+Order cancellation
+Frontend (React + Vite)
+
+Create a modern professional trading dashboard.
+
+The UI should include:
+
+Dashboard
+TradingView-style layout
+Responsive design
+Dark mode
+Professional styling
+Components
+Wallet Panel
+
+Display:
+
+Available balance
+Reserved balance
+Assets
+Order Entry
+
+Allow users to:
+
+Buy
+Sell
+Select Market or Limit orders
+Enter quantity
+Enter limit price
+Submit orders
+Order Book
+
+Display live:
+
+Buy orders
+Sell orders
+Prices
+Quantities
+
+Update automatically using WebSockets.
+
+Trade History
+
+Display:
+
+Recent trades
+Time
+Price
+Quantity
+
+Update live.
+
+Open Orders
+
+Display:
+
+Active orders
+Status
+Cancel button
+Market Statistics
+
+Display:
+
+Last traded price
+24-hour volume
+Highest price
+Lowest price
+
+Use React Hooks only.
+
+Use Axios for REST communication.
+
+Use WebSockets for live updates.
+
+WEEK 3 — AI Astromech Assistant
+
+Create a separate Python microservice.
+
+Use:
+
+Python
+FastAPI
+LangChain
+Ollama
+AI Features
+
+Create a secure AI assistant capable of:
+
+Reading wallet balances
+Viewing recent trades
+Viewing order history
+Explaining portfolio performance
+Answering trading-related questions
+
+The AI must only have read-only access.
+
+It must never:
+
+Execute trades
+Modify balances
+Cancel orders
+Delete records
+Ollama
+
+Use a local Ollama model.
+
+No cloud AI services.
+
+The service must run completely offline.
+
+Integration
+
+Connect the Python service to the Kotlin backend using REST APIs.
+
+The React frontend should include an AI Assistant panel where users can ask questions.
+
+Example:
+
+"What is my wallet balance?"
+"Show my last five trades."
+"How many open orders do I have?"
+"Summarize today's trading activity."
+Docker
+
+Update Docker Compose so the following services run together:
+
+Kotlin Backend
+PostgreSQL
+React Frontend
+Python AI Service
+Ollama
+
+Everything should start using a single command.
+
+CI/CD
+
+Update GitHub Actions to:
+
+Build the backend
+Run Kotlin tests
+Build the frontend
+Run frontend tests
+Verify Docker build
+Deliverables
+
+Do not replace existing code.
+
+Continue from the uploaded Week 1 project.
+
+Generate production-quality code.
+
+Maintain consistent architecture and folder structure.
+
+Add comments where appropriate.
+
+Ensure all new functionality integrates cleanly with the existing project and that the application remains fully functional after implementing Weeks 2 and 3.
