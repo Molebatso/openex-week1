@@ -8,12 +8,18 @@ import java.util.UUID
 @Entity
 @Table(
     name = "wallets",
-    uniqueConstraints = [UniqueConstraint(columnNames = ["user_id", "currency"])]
+    uniqueConstraints = [
+        UniqueConstraint(
+            name = "uk_wallet_user_currency",
+            columnNames = ["user_id", "currency"]
+        )
+    ]
 )
-data class Wallet(
+class Wallet(
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    var id: UUID? = null,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

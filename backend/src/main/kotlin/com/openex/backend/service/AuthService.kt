@@ -23,6 +23,7 @@ class AuthService(
     private val jwtTokenProvider: JwtTokenProvider,
     private val walletService: WalletService,
 ) {
+
     private val log = LoggerFactory.getLogger(AuthService::class.java)
 
     /**
@@ -31,47 +32,74 @@ class AuthService(
      */
     @Transactional
     fun register(request: RegisterRequest): AuthResponse {
+
         if (userRepository.existsByUsername(request.username)) {
-            throw DuplicateResourceException("Username '${request.username}' is already taken")
-        }
-        if (userRepository.existsByEmail(request.email)) {
-            throw DuplicateResourceException("Email '${request.email}' is already registered")
+            throw DuplicateResourceException(
+                "Username '${request.username}' is already taken"
+            )
         }
 
-        val user = userRepository.save(
-            User(
-                username = request.username,
-                email = request.email,
-                passwordHash = passwordEncoder.encode(request.password),
+        if (userRepository.existsByEmail(request.email)) {
+            throw DuplicateResourceException(
+                "Email '${request.email}' is already registered"
             )
+        }
+
+        val passwordHash = passwordEncoder.encode(request.password)
+
+        val user = User(
+            username = request.username,
+            email = request.email,
+            passwordHash = passwordHash,
+            role = com.openex.backend.entity.UserRole.USER
         )
-        log.info("Registered new user: ${user.username} (${user.id})")
+
+        val savedUser = userRepository.save(user)
+
+        log.info(
+            "Registered new user: ${savedUser.username} (${savedUser.id})"
+        )
 
         // Provision default wallets
-        walletService.createDefaultWallets(user)
+        walletService.createDefaultWallets(savedUser)
 
         // Log the new user in immediately
-        return login(LoginRequest(request.username, request.password))
+        return login(
+            LoginRequest(
+                request.username,
+                request.password
+            )
+        )
     }
 
     /**
      * Authenticate an existing user and return a JWT.
      */
     fun login(request: LoginRequest): AuthResponse {
+
         val authentication = authenticationManager.authenticate(
-            UsernamePasswordAuthenticationToken(request.username, request.password)
+            UsernamePasswordAuthenticationToken(
+                request.username,
+                request.password
+            )
         )
 
         val token = jwtTokenProvider.generateToken(authentication)
-        val principal = authentication.principal as OpenExUserDetails
+
+        val principal =
+            authentication.principal as OpenExUserDetails
 
         log.info("User logged in: ${principal.username}")
-        val user = userRepository.findByUsername(principal.username)!!
+
+        val user = userRepository.findByUsername(principal.username)
+            ?: throw IllegalStateException(
+                "Authenticated user '${principal.username}' was not found"
+            )
 
         return AuthResponse(
             token = token,
             username = user.username,
-            email = user.email,
+            email = user.email
         )
     }
 }
