@@ -1,31 +1,42 @@
 package com.openex.backend.entity
 
-import jakarta.persistence.*
+import jakarta.persistence.Column
+import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
+import jakarta.persistence.GeneratedValue
+import jakarta.persistence.GenerationType
+import jakarta.persistence.Id
+import jakarta.persistence.Table
 import java.time.Instant
 import java.util.UUID
 
-enum class UserRole { USER, ADMIN }
+enum class UserRole {
+    USER,
+    ADMIN
+}
 
 @Entity
 @Table(name = "users")
-data class User(
+class User(
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID? = null,
+    var id: UUID? = null,
 
     @Column(nullable = false, unique = true, length = 50)
-    val username: String,
+    var username: String,
 
     @Column(nullable = false, unique = true)
-    val email: String,
+    var email: String,
 
     @Column(nullable = false)
-    val passwordHash: String,
+    var passwordHash: String,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    val role: UserRole = UserRole.USER,
+    var role: UserRole = UserRole.USER,
 
     @Column(nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now(),
+    var createdAt: Instant = Instant.now()
 )

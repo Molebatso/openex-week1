@@ -81,7 +81,7 @@ class WalletService(
     }
 
     private fun Wallet.toResponse() = WalletResponse(
-        id = id,
+        id = requireNotNull(id),
         currency = currency,
         balance = balance,
     )
