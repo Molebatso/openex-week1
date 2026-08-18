@@ -12,8 +12,7 @@ BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8080")
 OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
 # Model to use — must be pulled in Ollama first (e.g. `ollama pull llama3.2`)
-OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2")
-
+OLLAMA_MODEL: str = os.getenv("OLLAMA_MODEL", "llama3.2:latest")
 # FastAPI service
 AI_SERVICE_PORT: int = int(os.getenv("AI_SERVICE_PORT", "8001"))
 
