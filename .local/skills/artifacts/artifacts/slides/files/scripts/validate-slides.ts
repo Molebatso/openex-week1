@@ -1,5 +1,12 @@
 /// <reference types="node" />
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  unlinkSync,
+  writeFileSync,
+} from 'fs';
 import { access } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -8,6 +15,12 @@ import {
   validateSlidesManifest,
   type SlideManifestEntry as SlideEntry,
 } from '../src/.sdm/core/slidesManifest';
+import {
+  isRepairableSdmFile,
+  repairSlideDocument,
+  repairSlidesManifest,
+  type RepairResult,
+} from './sdmRepair';
 import {
   findOrphanSdmFiles,
   validateSdmEntries,
@@ -27,7 +40,84 @@ type ValidationIssue = {
   message: string;
 };
 
+type ValidationMode = 'fix' | 'check';
+
+type PendingRepair = {
+  relativePath: string;
+  absolutePath: string;
+  original: string;
+  content: string;
+  changes: Array<string>;
+};
+
 let slides: SlideEntry[] = [];
+
+export function validationMode(args: Array<string>): ValidationMode {
+  if (args.length === 0 || (args.length === 1 && args[0] === '--fix')) {
+    return 'fix';
+  }
+  if (args.length === 1 && args[0] === '--check') {
+    return 'check';
+  }
+
+  throw new Error(`Unknown arguments: ${args.join(' ')}`);
+}
+
+function pendingRepair(
+  relativePath: string,
+  absolutePath: string,
+  original: string,
+  repaired: RepairResult,
+): PendingRepair | undefined {
+  if (repaired.changes.length === 0) {
+    return undefined;
+  }
+
+  return {
+    relativePath,
+    absolutePath,
+    original,
+    content: `${JSON.stringify(repaired.value, null, 2)}\n`,
+    changes: repaired.changes,
+  };
+}
+
+function applyRepairs(repairs: Array<PendingRepair>): void {
+  const staged = repairs.map((repair, index) => ({
+    ...repair,
+    temporaryPath: `${repair.absolutePath}.validate-slides-${process.pid}-${index}.tmp`,
+  }));
+  let applied = 0;
+  try {
+    for (const repair of staged) {
+      writeFileSync(repair.temporaryPath, repair.content);
+    }
+    for (const repair of staged) {
+      renameSync(repair.temporaryPath, repair.absolutePath);
+      applied += 1;
+    }
+  } catch (error) {
+    for (let index = 0; index < applied; index += 1) {
+      const repair = staged[index];
+      if (repair !== undefined) {
+        writeFileSync(repair.absolutePath, repair.original);
+      }
+    }
+    for (const repair of staged) {
+      if (existsSync(repair.temporaryPath)) {
+        unlinkSync(repair.temporaryPath);
+      }
+    }
+    throw error;
+  }
+
+  for (const repair of repairs) {
+    console.log(`Fixed ${repair.relativePath}:`);
+    for (const change of repair.changes) {
+      console.log(`- ${change}`);
+    }
+  }
+}
 
 function relativeToProject(filePath: string): string {
   return path.relative(projectRoot, filePath).replaceAll(path.sep, '/');
@@ -41,9 +131,7 @@ function formatIssuePath(issuePath: string): string {
   return issuePath
     .slice(1)
     .split('/')
-    .map((segment) =>
-      segment.replaceAll('~1', '/').replaceAll('~0', '~'),
-    )
+    .map((segment) => segment.replaceAll('~1', '/').replaceAll('~0', '~'))
     .join('.');
 }
 
@@ -191,8 +279,38 @@ function validateSdmSlides(issues: ValidationIssue[]) {
   }
 }
 
+function pendingSdmRepairs(): Array<PendingRepair> {
+  const repairs: Array<PendingRepair> = [];
+  for (const slide of slides.filter((entry) => entry.kind === 'sdm')) {
+    if (!isRepairableSdmFile(slide.id, slide.filepath)) {
+      continue;
+    }
+    const absolutePath = path.join(projectRoot, slide.filepath);
+    let original: string;
+    let input: unknown;
+    try {
+      original = readFileSync(absolutePath, 'utf8');
+      input = JSON.parse(original) as unknown;
+    } catch {
+      continue;
+    }
+    const repair = pendingRepair(
+      slide.filepath,
+      absolutePath,
+      original,
+      repairSlideDocument(input),
+    );
+    if (repair !== undefined) {
+      repairs.push(repair);
+    }
+  }
+
+  return repairs;
+}
+
 async function main() {
   const issues: ValidationIssue[] = [];
+  const mode = validationMode(process.argv.slice(2));
 
   try {
     await access(slidesManifestPath);
@@ -206,10 +324,10 @@ async function main() {
   }
 
   let rawManifest: unknown;
+  let rawManifestSource: string;
   try {
-    rawManifest = JSON.parse(
-      readFileSync(slidesManifestPath, 'utf8'),
-    ) as unknown;
+    rawManifestSource = readFileSync(slidesManifestPath, 'utf8');
+    rawManifest = JSON.parse(rawManifestSource) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(
@@ -220,6 +338,20 @@ async function main() {
     return;
   }
 
+  const repairs: Array<PendingRepair> = [];
+  if (mode === 'fix') {
+    const repairedManifest = repairSlidesManifest(rawManifest);
+    rawManifest = repairedManifest.value;
+    const manifestRepair = pendingRepair(
+      'src/data/slides-manifest.json',
+      slidesManifestPath,
+      rawManifestSource,
+      repairedManifest,
+    );
+    if (manifestRepair !== undefined) {
+      repairs.push(manifestRepair);
+    }
+  }
   const parsedManifest = validateSlidesManifest(rawManifest);
   if (!parsedManifest.ok) {
     console.error(
@@ -234,6 +366,10 @@ async function main() {
   }
 
   slides = parsedManifest.entries;
+  if (mode === 'fix') {
+    repairs.push(...pendingSdmRepairs());
+    applyRepairs(repairs);
+  }
 
   validateDuplicatePositions(issues);
   validateDuplicateIds(issues);
@@ -256,4 +392,10 @@ async function main() {
   console.log(`✓ Slide manifest is valid (${slides.length} slides)`);
 }
 
-await main();
+const executedPath = process.argv[1];
+if (
+  executedPath !== undefined &&
+  path.resolve(executedPath) === fileURLToPath(import.meta.url)
+) {
+  await main();
+}

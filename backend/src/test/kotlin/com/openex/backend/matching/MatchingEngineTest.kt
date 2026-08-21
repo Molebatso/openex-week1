@@ -39,23 +39,30 @@ class MatchingEngineTest {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+    // Explicit IDs here simulate what Hibernate would assign on save() —
+    // these Order objects are constructed directly in tests and never go
+    // through a real persistence context, so `id` must be set by hand.
 
     private fun limitSell(price: String, qty: String) = Order(
+        id = UUID.randomUUID(),
         user = seller, symbol = "BTC/USD", side = OrderSide.SELL,
         type = OrderType.LIMIT, price = BigDecimal(price), quantity = BigDecimal(qty)
     )
 
     private fun limitBuy(price: String, qty: String) = Order(
+        id = UUID.randomUUID(),
         user = buyer, symbol = "BTC/USD", side = OrderSide.BUY,
         type = OrderType.LIMIT, price = BigDecimal(price), quantity = BigDecimal(qty)
     )
 
     private fun marketBuy(qty: String) = Order(
+        id = UUID.randomUUID(),
         user = buyer, symbol = "BTC/USD", side = OrderSide.BUY,
         type = OrderType.MARKET, price = null, quantity = BigDecimal(qty)
     )
 
     private fun marketSell(qty: String) = Order(
+        id = UUID.randomUUID(),
         user = seller, symbol = "BTC/USD", side = OrderSide.SELL,
         type = OrderType.MARKET, price = null, quantity = BigDecimal(qty)
     )
@@ -161,8 +168,9 @@ class MatchingEngineTest {
         val sell = limitSell("50000", "1")
         engine.submit(sell)
 
-        every { orderRepository.findById(sell.id) } returns Optional.of(sell)
-        engine.cancel(sell.id)
+        val sellId = sell.id!!
+        every { orderRepository.findById(sellId) } returns Optional.of(sell)
+        engine.cancel(sellId)
 
         val buy = limitBuy("50000", "1")
         val trades = engine.submit(buy)

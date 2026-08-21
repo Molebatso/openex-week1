@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.math.BigDecimal
+import java.util.UUID
 
 class OrderBookTest {
 
@@ -17,11 +18,13 @@ class OrderBookTest {
     fun setup() { book = OrderBook("BTC/USD") }
 
     private fun bid(price: String, qty: String) = Order(
+        id = UUID.randomUUID(),
         user = buyer,  symbol = "BTC/USD", side = OrderSide.BUY,
         type = OrderType.LIMIT, price = BigDecimal(price), quantity = BigDecimal(qty)
     )
 
     private fun ask(price: String, qty: String) = Order(
+        id = UUID.randomUUID(),
         user = seller, symbol = "BTC/USD", side = OrderSide.SELL,
         type = OrderType.LIMIT, price = BigDecimal(price), quantity = BigDecimal(qty)
     )
@@ -109,6 +112,7 @@ class OrderBookTest {
         book.add(ask("55000", "1"))
 
         val marketBuy = Order(
+            id = UUID.randomUUID(),
             user = buyer, symbol = "BTC/USD", side = OrderSide.BUY,
             type = OrderType.MARKET, price = null, quantity = BigDecimal("1")
         )
@@ -121,6 +125,7 @@ class OrderBookTest {
     @Test
     fun `market sell with no bids — no match`() {
         val marketSell = Order(
+            id = UUID.randomUUID(),
             user = seller, symbol = "BTC/USD", side = OrderSide.SELL,
             type = OrderType.MARKET, price = null, quantity = BigDecimal("1")
         )

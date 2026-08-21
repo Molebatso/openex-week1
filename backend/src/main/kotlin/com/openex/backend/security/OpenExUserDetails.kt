@@ -12,29 +12,20 @@ data class OpenExUserDetails(
     private val passwordVal: String,
     private val authoritiesVal: Collection<GrantedAuthority>,
 ) : UserDetails {
-
     override fun getAuthorities(): Collection<GrantedAuthority> = authoritiesVal
-
     override fun getPassword(): String = passwordVal
-
     override fun getUsername(): String = usernameVal
-
     override fun isAccountNonExpired(): Boolean = true
-
     override fun isAccountNonLocked(): Boolean = true
-
     override fun isCredentialsNonExpired(): Boolean = true
-
     override fun isEnabled(): Boolean = true
 
     companion object {
         fun from(user: User) = OpenExUserDetails(
-            userId = requireNotNull(user.id),
+            userId = user.id!!,
             usernameVal = user.username,
             passwordVal = user.passwordHash,
-            authoritiesVal = listOf(
-                SimpleGrantedAuthority("ROLE_${user.role.name}")
-            ),
+            authoritiesVal = listOf(SimpleGrantedAuthority("ROLE_${user.role.name}")),
         )
     }
 }

@@ -1,6 +1,8 @@
 'use strict';
 
 const TEMPLATE_SUFFIX = '.template';
+const TEMPLATE_MANIFEST_FILENAME = 'template.json';
+const TEMPLATE_MANIFEST_KEYS = new Set(['remove']);
 const HTML_FILE_EXTENSIONS = new Set(['.html', '.htm']);
 const TOKEN_VALUES = {
   __REPLIT_ARTIFACT_SLUG__: (slug) => slug,
@@ -61,35 +63,113 @@ function interpolate(content, slug, title, isHtml) {
   return rendered;
 }
 
-function copyDir(fs, path, src, dest, slug, title) {
-  fs.mkdirSync(dest, { recursive: true });
+// Keyed by produced path, not source filename, so a template's `app.json`
+// overrides a base `app.json.template`.
+function collectLayer(fs, path, layerDir) {
+  const files = new Map();
 
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = path.join(src, entry.name);
-    let destName = entry.name;
+  const walk = (currentDir, destDir) => {
+    for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+      const srcPath = path.join(currentDir, entry.name);
 
-    if (entry.isDirectory()) {
-      copyDir(fs, path, srcPath, path.join(dest, destName), slug, title);
-      continue;
+      if (entry.isDirectory()) {
+        walk(srcPath, destDir ? `${destDir}/${entry.name}` : entry.name);
+        continue;
+      }
+
+      const isTemplate = entry.name.endsWith(TEMPLATE_SUFFIX);
+      const destName = isTemplate
+        ? entry.name.slice(0, -TEMPLATE_SUFFIX.length)
+        : entry.name;
+      const destPath = destDir ? `${destDir}/${destName}` : destName;
+
+      const collision = files.get(destPath);
+      if (collision !== undefined) {
+        throw new Error(
+          `${layerDir}: '${collision.srcPath}' and '${srcPath}' both produce '${destPath}'`,
+        );
+      }
+
+      files.set(destPath, { isTemplate, srcPath });
     }
+  };
 
-    const isTemplate = destName.endsWith(TEMPLATE_SUFFIX);
-    if (isTemplate) {
-      destName = destName.slice(0, -TEMPLATE_SUFFIX.length);
+  walk(layerDir, '');
+  return files;
+}
+
+// Contract: artifacts/expo/templates/README.md.
+function readTemplateRemovals(fs, path, templateDir) {
+  const manifestPath = path.join(templateDir, TEMPLATE_MANIFEST_FILENAME);
+  if (!fs.existsSync(manifestPath)) {
+    return [];
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`${manifestPath}: invalid JSON (${error.message})`);
+  }
+
+  if (manifest === null || typeof manifest !== 'object') {
+    throw new Error(`${manifestPath}: expected a JSON object`);
+  }
+
+  for (const key of Object.keys(manifest)) {
+    if (!TEMPLATE_MANIFEST_KEYS.has(key)) {
+      throw new Error(`${manifestPath}: unknown key '${key}'`);
     }
+  }
 
-    const destPath = path.join(dest, destName);
+  const removals = manifest.remove ?? [];
+  if (
+    !Array.isArray(removals) ||
+    removals.some((entry) => typeof entry !== 'string' || entry === '')
+  ) {
+    throw new Error(`${manifestPath}: 'remove' must be an array of paths`);
+  }
+
+  return removals;
+}
+
+function layerScaffold(baseFiles, templateFiles, removals) {
+  const files = new Map([...baseFiles, ...templateFiles]);
+
+  for (const destPath of removals) {
+    if (templateFiles.has(destPath)) {
+      throw new Error(
+        `template removes '${destPath}' but also provides it; drop one`,
+      );
+    }
+    if (!files.delete(destPath)) {
+      throw new Error(
+        `template removes '${destPath}', which the base scaffold does not produce`,
+      );
+    }
+  }
+
+  return files;
+}
+
+function writeScaffold(fs, path, files, destDir, slug, title) {
+  fs.mkdirSync(destDir, { recursive: true });
+
+  for (const destPath of [...files.keys()].sort()) {
+    const { isTemplate, srcPath } = files.get(destPath);
+    const target = path.join(destDir, ...destPath.split('/'));
+    fs.mkdirSync(path.dirname(target), { recursive: true });
 
     if (isTemplate) {
       const raw = fs.readFileSync(srcPath, 'utf8');
       const isHtml = HTML_FILE_EXTENSIONS.has(
-        path.extname(destName).toLowerCase(),
+        path.extname(target).toLowerCase(),
       );
-      fs.writeFileSync(destPath, interpolate(raw, slug, title, isHtml));
+      fs.writeFileSync(target, interpolate(raw, slug, title, isHtml));
       continue;
     }
 
-    fs.copyFileSync(srcPath, destPath);
+    fs.copyFileSync(srcPath, target);
   }
 }
 
@@ -110,12 +190,14 @@ async function main() {
   if (artifactType === 'data-visualization') {
     artifactFilesDir = 'react-vite';
   }
+
+  let templateDir;
   if (template !== undefined) {
     if (artifactType !== 'expo' || template !== 'expo-sdk57') {
       writeStderr(`Unsupported template '${template}' for ${artifactType}`);
       process.exit(1);
     }
-    artifactFilesDir = 'expo/templates/sdk57';
+    templateDir = path.join(scriptDir, 'artifacts', 'expo/templates/sdk57');
   }
 
   const filesDir = path.join(scriptDir, 'artifacts', artifactFilesDir, 'files');
@@ -133,7 +215,29 @@ async function main() {
 
   writeStdout(`Bootstrapping ${artifactType} artifact: ${slug}`);
 
-  copyDir(fs, path, filesDir, destDir, slug, title);
+  const baseFiles = collectLayer(fs, path, filesDir);
+  let files = baseFiles;
+  if (templateDir !== undefined) {
+    if (!fs.existsSync(templateDir)) {
+      writeStderr(`Error: missing template directory for ${template}`);
+      process.exit(1);
+    }
+
+    // A template that only removes base files has no `files/` to track, since
+    // git cannot carry an empty directory.
+    const templateFilesDir = path.join(templateDir, 'files');
+    const templateFiles = fs.existsSync(templateFilesDir)
+      ? collectLayer(fs, path, templateFilesDir)
+      : new Map();
+
+    files = layerScaffold(
+      baseFiles,
+      templateFiles,
+      readTemplateRemovals(fs, path, templateDir),
+    );
+  }
+
+  writeScaffold(fs, path, files, destDir, slug, title);
   writeStdout(`  Copied files to artifacts/${slug}/`);
 
   writeStdout('Done.');

@@ -1,5 +1,41 @@
 # Video Generation
 
+## Before Generating: Confirm Settings With the User
+
+Video generation is expensive, and aspect ratio and quality change both the result and the price. They are independent settings: resolve each one separately from the user's request. An unambiguous platform or orientation (such as "for TikTok") resolves only the aspect ratio; it says nothing about quality. For a NEW user-requested video, if any setting is still undetermined, call `AskQuestion` directly as a model tool -- not inside `CodeExecution` -- with only the undetermined fields, end the turn, and wait for the answer:
+
+```json
+{
+  "question": "How should the video be generated?",
+  "fields": [
+    {
+      "kind": "singleSelect",
+      "name": "videoAspectRatio",
+      "title": "Aspect ratio",
+      "required": true,
+      "options": [
+        { "value": "16:9", "label": "16:9 (YouTube, web, presentations, default)" },
+        { "value": "9:16", "label": "9:16 (TikTok, Instagram Reels, Shorts)" }
+      ]
+    },
+    {
+      "kind": "singleSelect",
+      "name": "videoQuality",
+      "title": "Quality",
+      "required": true,
+      "options": [
+        { "value": "standard", "label": "Standard (720p, faster and cheaper, default)" },
+        { "value": "high", "label": "High (1080p, slower, costs more)" }
+      ]
+    }
+  ]
+}
+```
+
+Map the answers onto the call: the selected ratio becomes `aspectRatio`; `standard` means `resolution: "720p"` with `highQuality` unset, and `high` means `resolution: "1080p"` with `highQuality: true`.
+
+Omit a field only when the user already settled that specific setting. Skip the question entirely only when every setting is settled, the user asks to skip it (use the defaults: 16:9, standard quality), you are regenerating a video whose settings were already confirmed, or you are a subagent executing a delegated task -- then use the parameters given in the task.
+
 ## Available Functions
 
 ### generateVideo({prompt, ...})

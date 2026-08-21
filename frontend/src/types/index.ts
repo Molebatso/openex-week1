@@ -26,6 +26,11 @@ export interface WalletResponse {
   balance: string;
 }
 
+export interface DepositRequest {
+  currency: string;
+  amount: number;
+}
+
 // ── Orders ───────────────────────────────────────────────────────────────────
 
 export type OrderSide = 'BUY' | 'SELL';

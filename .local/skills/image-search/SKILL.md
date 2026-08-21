@@ -96,7 +96,7 @@ When showing image results to the user:
 
 1. Pick up to 4 strong results
 2. Download each image URL into `attached_assets/image_search/`
-3. Call `presentAsset({ filePath, title })` for each saved file
+3. Call `presentAsset({ filePath, title, description })` for each saved file
 
 ```javascript
 // 1) DURABLE: callbacks live here, never inside "use impure"
@@ -124,7 +124,11 @@ const saved = await (async (items) => {
 })(items);
 // 3) DURABLE: present each saved file
 for (const f of saved) {
-  await presentAsset({ filePath: f.filePath, title: f.title });
+  await presentAsset({
+    filePath: f.filePath,
+    title: f.title,
+    description: 'Image search result for "mid-century chair".',
+  });
 }
 ```
 

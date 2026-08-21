@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.openex.backend.matching.MatchingEngineTest" tests="10" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:16:10" hostname="DESKTOP-U2OQGJ4" time="0.512">
+  <properties/>
+  <testcase name="partial fill — buy order larger than sell order()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.334"/>
+  <testcase name="ledger service is called for every executed trade()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.011"/>
+  <testcase name="price-time priority — lowest ask matched first()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.015"/>
+  <testcase name="buy limit order does NOT match when bid price is below ask()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.009"/>
+  <testcase name="10 concurrent orders — all matching orders produce trades()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.013"/>
+  <testcase name="partial fill — multiple resting sells consumed by one large buy()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.019"/>
+  <testcase name="market sell order matches immediately against best bid()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.009"/>
+  <testcase name="market buy order matches immediately against best ask()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.007"/>
+  <testcase name="limit sell resting, matching limit buy produces a trade()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.009"/>
+  <testcase name="cancelled order is removed from book — no further matches()" classname="com.openex.backend.matching.MatchingEngineTest" time="0.072"/>
+  <system-out><![CDATA[13:16:10.633 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 0.5 BTC @ 50000 [buy:7c28390a-7bee-4de2-912b-5dfade400743 sell:a89eb1ef-3ce1-4ae9-bfda-7a9454552af3]
+13:16:10.643 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:ffa7a9f1-bb4e-44da-b202-f74e9841e650 sell:d900eea4-b2c0-4587-b9c8-d1de620422c9]
+13:16:10.661 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:498aa596-6930-45b4-b421-d668be9c3f6f sell:1db89452-6f76-4985-ae0b-5ade2bfadd15]
+13:16:10.682 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:233450d5-224a-44bb-a804-154372c4fa09 sell:7315d3da-8433-4fc4-8db7-f08ad8f41681]
+13:16:10.683 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:73e9d96c-a3c4-49d2-8502-d684613cda8c sell:c5ca1b08-aa33-408d-a241-50d76a20563a]
+13:16:10.684 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:af72f5d7-3e57-4273-b2ca-0565f9e88aa9 sell:3bc58649-1021-4d25-8d1e-1e87635104a5]
+13:16:10.686 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:0d5d4dcf-57aa-4e97-80a4-7972b47a9320 sell:51f80c5b-c7a2-4f45-9625-b8f51b0d997d]
+13:16:10.687 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:276ac051-d072-4c41-95f7-f7b242fb3de4 sell:fbbea05a-2f26-4aaf-b1d3-fd760321ff9a]
+13:16:10.696 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 0.3 BTC @ 50000 [buy:a7359b43-8413-4db2-ba31-189f47d2f135 sell:f5d3fdad-72d6-4f04-8b1c-becc2b5052fd]
+13:16:10.702 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 0.3 BTC @ 50000 [buy:a7359b43-8413-4db2-ba31-189f47d2f135 sell:2292853c-3e3b-4b0e-858d-d5be1cf28c28]
+13:16:10.706 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 0.3 BTC @ 50000 [buy:a7359b43-8413-4db2-ba31-189f47d2f135 sell:a098dab9-3736-4f9d-bec6-ed2fb63b4652]
+13:16:10.721 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 49500 [buy:c51a47ce-a275-434b-849d-694c2dc66efc sell:3489a9c6-9749-4a2b-bed3-df7f63f4775f]
+13:16:10.730 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1.5 BTC @ 49500 [buy:b6ce741c-e855-4bdc-91a5-bd9807f4ee27 sell:7a95a10d-f22f-40bc-aa6d-d27b5f692c52]
+13:16:10.740 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- TRADE executed — 1 BTC @ 50000 [buy:49a47445-ae30-4c16-b969-033fdb412f0a sell:09f1d4ac-2bf2-47b9-98e7-1e69957ded54]
+13:16:10.811 [Test worker] INFO com.openex.backend.matching.MatchingEngineService -- Order 09f73f5a-c310-407e-a53e-3eb2692fa285 cancelled
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

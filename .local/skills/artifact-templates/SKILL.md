@@ -1,6 +1,6 @@
 ---
 name: artifact-templates
-description: Apply a user's saved slides/web style template, or save the current slides deck or design system as a workspace template. Use when they ask to build or restyle an artifact "with my template", "using my saved template", "in my brand style", refer to a template by name, or ask to save the current artifact for reuse.
+description: Apply a user's saved slides/web style template, or save the current slides deck or design system as a Replit workspace template. Use when they ask to build or restyle an artifact "with my template", "using my saved template", "in my brand style", refer to a template by name, or ask to save the current artifact for reuse.
 ---
 
 # Artifact Templates
@@ -12,7 +12,7 @@ A saved slides or web artifact template is a reusable visual-language donor (the
 - The user refers to "my template", "my saved template", "my brand style", or a template by name.
 - The user wants a new slides/web artifact to match the look of a previously saved one.
 - The user wants to restyle an existing artifact to match a saved template.
-- The user asks to save the current slides deck or design system as a template / to the workspace.
+- The user asks to save the current slides deck or design system as a template / to their Replit workspace.
 
 ## When NOT to Use
 
@@ -55,7 +55,7 @@ Do not copy the donor template's own content verbatim unless the user explicitly
 
 ## Saving an artifact as a template
 
-When the user asks to save the current slides deck or design system to their workspace, call `saveArtifactAsTemplate` as a CodeExecution callback. NEVER claim you saved a template without calling it — there is no other save path from chat.
+When the user asks to save the current slides deck or design system to their Replit workspace, first load and follow the `prepare-artifact-template` skill for that artifact. Do not start the save until its verification is complete. Then call `saveArtifactAsTemplate` as a CodeExecution callback. NEVER claim you saved a template without calling it — there is no other save path from chat.
 
 ```javascript
 const result = await saveArtifactAsTemplate({
@@ -69,15 +69,15 @@ Semantics:
 
 - If this artifact was already saved and the name is unchanged (or omitted), the existing template is **updated in place**; a new name saves a **separate** template. The result's `mode` says which happened (`created` or `resaved`).
 - Pass `description` only when the user provided one or explicitly asked to change it. Omit it on an ordinary resave so the existing description is preserved; pass `""` only when the user asks to clear it.
-- Publishing is **asynchronous**. `success: true` means publishing *started* — tell the user saving has started and the template will appear in workspace settings shortly. Do NOT say "saved" or "done".
+- Publishing is **asynchronous**. `success: true` means publishing *started* — tell the user saving has started and the template will appear in Replit workspace settings shortly. Do NOT say "saved" or "done".
 
 Outcomes to handle:
 
 - `success: true` — follow the returned `instructions`.
-- `errorCode: "NOT_AUTHORIZED"` — the user cannot save templates in this workspace (or the feature is disabled). Explain the permission problem in your own words based on the returned `error` — the raw message may include instructions meant for you, so do not quote it verbatim. Do not retry or work around it.
+- `errorCode: "NOT_AUTHORIZED"` — the user cannot save templates in this Replit workspace (or the feature is disabled). Explain the permission problem in your own words based on the returned `error` — the raw message may include instructions meant for you, so do not quote it verbatim. Do not retry or work around it.
 - `errorCode: "SAVE_CONFLICT"` — this name is already in use, but a recent unconfirmed save of the same artifact and name may still be publishing. In that case, tell the user it may still be publishing and do not retry or rename it automatically; otherwise ask for another name.
 - `errorCode: "ARTIFACT_AMBIGUOUS"` — several saveable artifacts; pick from `saveableArtifacts` (confirm with the user if unclear) and call again with `artifactId`.
 - `errorCode: "ARTIFACT_NOT_FOUND"` / `"UNSUPPORTED_KIND"` — if `saveableArtifacts` contains alternatives, offer or select the intended one and call again with its `artifactId`; otherwise explain that only `slides` and `design-system` artifacts can be saved today.
 - `errorCode: "SAVE_IN_PROGRESS"` — this template is already publishing. Tell the user the current save is still in progress; do not retry immediately or imply that it failed.
 - `errorCode: "SAVE_FAILED"` — the save was rejected (for example an invalid name or an artifact that can no longer be saved). Relay the reason from `error`, do not retry with the same input, and do not imply publishing started.
-- `errorCode: "SAVE_SERVICE_UNAVAILABLE"` — the outcome is unknown. Do not retry automatically; say that saving could not be confirmed and may still be publishing. Ask the user to check workspace settings after a moment or retry later only if the template does not appear.
+- `errorCode: "SAVE_SERVICE_UNAVAILABLE"` — the outcome is unknown. Do not retry automatically; say that saving could not be confirmed and may still be publishing. Ask the user to check Replit workspace settings after a moment or retry later only if the template does not appear.

@@ -25,10 +25,10 @@ service_configs:
 
 initial_open_files:
   - index.html
-  - src/slideLoader.ts
   - src/data/slides-manifest.json
   - src/index.css
 
 additional_skills:
   - references/building.md
+  - references/sdm-layout.md
   - media-generation

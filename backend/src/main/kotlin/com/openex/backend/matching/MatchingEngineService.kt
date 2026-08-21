@@ -1,5 +1,7 @@
 package com.openex.backend.matching
 
+import com.openex.backend.dto.OrderBookResponse
+import com.openex.backend.dto.PriceLevel
 import com.openex.backend.entity.Order
 import com.openex.backend.entity.OrderSide
 import com.openex.backend.entity.OrderStatus
@@ -118,6 +120,19 @@ class MatchingEngineService(
         }
     }
 
+    /**
+     * Return a snapshot of the current order book for a symbol.
+     * Safe to call from outside a transaction — reads from the in-memory book.
+     *
+     * @param depth maximum number of price levels to return per side (default 20)
+     */
+    fun getOrderBookSnapshot(symbol: String, depth: Int = 20): OrderBookResponse {
+        val book = bookFor(symbol)
+        val bids = book.bidDepth().entries.take(depth).map { (p, q) -> PriceLevel(p, q) }
+        val asks = book.askDepth().entries.take(depth).map { (p, q) -> PriceLevel(p, q) }
+        return OrderBookResponse(symbol = symbol, bids = bids, asks = asks)
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private fun validateOrder(order: Order) {
@@ -131,9 +146,9 @@ class MatchingEngineService(
 
     private fun updateOrderStatus(order: Order) {
         order.status = when {
-            order.filledQuantity >= order.quantity          -> OrderStatus.FILLED
+            order.filledQuantity >= order.quantity           -> OrderStatus.FILLED
             order.filledQuantity > java.math.BigDecimal.ZERO -> OrderStatus.PARTIAL
-            else                                            -> OrderStatus.OPEN
+            else                                             -> OrderStatus.OPEN
         }
     }
 
@@ -142,4 +157,8 @@ class MatchingEngineService(
         if (parts.size != 2) throw InvalidOrderException("Invalid symbol format: $symbol (expected BASE/QUOTE)")
         return parts[0] to parts[1]
     }
+
+    /** Expose raw bid/ask depth maps for WebSocket publishing without DTO conversion. */
+    fun getBidDepth(symbol: String) = bookFor(symbol).bidDepth()
+    fun getAskDepth(symbol: String) = bookFor(symbol).askDepth()
 }

@@ -3,7 +3,7 @@ import type { AiChatRequest, AiChatResponse } from '../types';
 
 // The AI service runs on port 8001 in development.
 // In Docker it's reachable at the same host via nginx proxy at /ai.
-const AI_BASE = import.meta.env.VITE_AI_URL || 'http://localhost:8001';
+const AI_BASE = import.meta.env.VITE_AI_URL || '/ai';
 
 const aiClient = axios.create({
   baseURL: AI_BASE,

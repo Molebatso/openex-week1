@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.openex.backend.service.MarketDataServiceTest" tests="5" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:16:11" hostname="DESKTOP-U2OQGJ4" time="0.082">
+  <properties/>
+  <testcase name="updateLatestPrice stores and retrieves the latest price()" classname="com.openex.backend.service.MarketDataServiceTest" time="0.061"/>
+  <testcase name="updateLatestPrice overrides previous value()" classname="com.openex.backend.service.MarketDataServiceTest" time="0.002"/>
+  <testcase name="getStats computes high low volume from 24h trades()" classname="com.openex.backend.service.MarketDataServiceTest" time="0.006"/>
+  <testcase name="getLatestPrice falls back to DB when cache is cold()" classname="com.openex.backend.service.MarketDataServiceTest" time="0.005"/>
+  <testcase name="getStats returns zero volume when no trades in 24h window()" classname="com.openex.backend.service.MarketDataServiceTest" time="0.006"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

@@ -554,15 +554,12 @@ ElevenLabs is available as a Replit integration (connector). The user needs to c
 
 ```javascript
 
-const results = await searchIntegrations({ query: "elevenlabs" });
-
-// Then propose the connector so the user can authorize
-
-ProposeIntegration({ proposal: [{ integrationId: "connector:ccfg_elevenlabs_..." }] });
+const results = await searchIntegrations({ mode: "search", queries: ["elevenlabs"] });
+console.log(results);
 
 ```
 
-After authorization, use `addIntegration`to wire it to the project, then use`listConnections('elevenlabs')` inside a `"use impure"` function in the code execution sandbox to get the credentials.
+Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`. An accepted proposal is already attached, so do not call `addIntegration` afterward. Once connected, use `listConnections('elevenlabs')` inside a `"use impure"` function in the code execution sandbox to get the credentials.
 
 ### Workflow (2)
 

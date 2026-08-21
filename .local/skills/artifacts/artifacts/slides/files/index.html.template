@@ -33,7 +33,9 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- REPLACE: Update these font links to match your chosen display + body fonts -->
+    <!-- REPLACE: SDM slides load the built-in font registry automatically;
+         update these links only for fonts outside the registry or for JSX
+         slides -->
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap"
       rel="stylesheet"

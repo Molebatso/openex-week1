@@ -14,7 +14,8 @@ enum class OrderStatus { OPEN, PARTIAL, FILLED, CANCELLED }
 data class Order(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    @Column(nullable = false, updatable = false)
+    val id: UUID? = null,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)

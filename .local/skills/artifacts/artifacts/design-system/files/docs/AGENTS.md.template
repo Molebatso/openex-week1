@@ -10,12 +10,13 @@ on it and import its theme and components directly.
 - `tokens.json` — the single source of truth (DTCG format): colors (full light
   and dark sets), typography, spacing, and radius.
 - `scripts/build-tokens.mjs` — generates the outputs below from `tokens.json`.
-- `src/index.css` — GENERATED shadcn theme (web), exported as `./styles.css`.
+- `src/index.css` — GENERATED token theme (web), exported as `./styles.css`.
 - `src/generated/tokens.tsx` — GENERATED hex token object, the package's `.` and
   `./tokens` entry. Mobile (Expo) and other platforms import this.
 - `public/favicon.svg` — GENERATED app icon from `tokens.json` + the title.
-- `src/components/ui/` — the shadcn component library, themed by the tokens,
-  exported as `./components/*`.
+- `src/components/ui/` — the initial shadcn scaffold, exported as
+  `./components/*`. Generated systems keep and theme it; Figma imports prune and
+  restyle it; code imports replace it with the source component library.
 - `src/lib/` (`cn`) and `src/hooks/` — exported as `./lib/*` and `./hooks/*`.
 - `src/App.tsx` — the entry point for the living style guide.
 - `src/preview/DesignSystemBrowser.tsx` — the persistent grouped navigation,
@@ -24,7 +25,9 @@ on it and import its theme and components directly.
   description) and ordered navigation. Overview comes first;
   Brand/Colors/Fonts/Layout precede Components; Content/Charts/Motion/Applied
   examples follow when applicable. Each group is a nav section whose entries
-  are its nested pages. Empty optional groups stay hidden.
+  are its nested pages. Empty optional groups stay hidden. Keep component pages
+  loaded with `lazy(() => import(...))` so opening the preview does not download
+  every story.
 - `src/preview/foundations.tsx` — token-driven Overview, Colors, Fonts, and Layout
   pages.
 - `src/preview/parts.tsx` — shared page helpers, including `Guidelines` for design
@@ -68,7 +71,8 @@ Every user-facing web component under `src/components/ui/` must have a family
 story in `src/preview/demos/` covering its variants, sizes, and important states.
 Register each family once in `src/preview/registry.tsx`. If a component changes,
 update its story and registry entry in the same change and note meaningful
-additions or customizations in "What's here" above.
+additions or customizations in "What's here" above. Register new component pages
+with dynamic imports; do not eagerly import stories into the registry.
 
 Native components live under `src/components/native/`. Match an existing web
 component family's public API wherever React Native supports it, and document
@@ -78,6 +82,20 @@ imported into the web-only Vite preview.
 Keep `DESIGN_SYSTEM.title` and `DESIGN_SYSTEM.description` accurate. Update
 `NAV_GROUPS` whenever the system gains or loses a foundation, content guideline,
 chart, motion rule, or applied example.
+
+## Keep it template-ready
+
+This design system is a prime candidate to be saved to the workspace as a
+reusable template, and a template is packaged as this one directory alone. Keep
+it self-contained as you maintain it so that save works: use concrete dependency
+versions (never `catalog:`), keep `tsconfig.json` standalone (never `extends` a
+workspace-relative base), and never import from a sibling artifact or a shared
+`@workspace/*` lib. A saved template is consumed as a read-only style donor
+(re-authored from, not rebuilt), so keep the generated `src/index.css` and
+`src/generated/tokens.tsx` committed so the template carries a readable theme
+snapshot. If maintenance ever introduces a cross-artifact or workspace-lib
+dependency, load the `prepare-artifact-template` skill and follow it to pull the
+dependency back in before the user saves the template.
 
 ## Prototyping on the canvas
 

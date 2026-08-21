@@ -1,63 +1,178 @@
-import type { ComponentType } from 'react';
-import { AccordionDemo } from './demos/accordion';
-import { AlertDemo } from './demos/alert';
-import { AlertDialogDemo } from './demos/alert-dialog';
-import { AspectRatioDemo } from './demos/aspect-ratio';
-import { AvatarDemo } from './demos/avatar';
-import { BadgeDemo } from './demos/badge';
-import { BreadcrumbDemo } from './demos/breadcrumb';
-import { ButtonDemo } from './demos/button';
-import { ButtonGroupDemo } from './demos/button-group';
-import { CalendarDemo } from './demos/calendar';
-import { CardDemo } from './demos/card';
-import { CarouselDemo } from './demos/carousel';
-import { ChartDemo } from './demos/chart';
-import { CheckboxDemo } from './demos/checkbox';
-import { CollapsibleDemo } from './demos/collapsible';
-import { CommandDemo } from './demos/command';
-import { ContextMenuDemo } from './demos/context-menu';
-import { DialogDemo } from './demos/dialog';
-import { DrawerDemo } from './demos/drawer';
-import { DropdownMenuDemo } from './demos/dropdown-menu';
-import { EmptyDemo } from './demos/empty';
-import { FieldDemo } from './demos/field';
-import { FormDemo } from './demos/form';
-import { HoverCardDemo } from './demos/hover-card';
-import { InputDemo } from './demos/input';
-import { InputGroupDemo } from './demos/input-group';
-import { InputOtpDemo } from './demos/input-otp';
-import { ItemDemo } from './demos/item';
-import { KbdDemo } from './demos/kbd';
-import { MenubarDemo } from './demos/menubar';
-import { NavigationMenuDemo } from './demos/navigation-menu';
-import { PaginationDemo } from './demos/pagination';
-import { PopoverDemo } from './demos/popover';
-import { ProgressDemo } from './demos/progress';
-import { RadioGroupDemo } from './demos/radio-group';
-import { ResizableDemo } from './demos/resizable';
-import { ScrollAreaDemo } from './demos/scroll-area';
-import { SelectDemo } from './demos/select';
-import { SeparatorDemo } from './demos/separator';
-import { SheetDemo } from './demos/sheet';
-import { SidebarDemo } from './demos/sidebar';
-import { SkeletonDemo } from './demos/skeleton';
-import { SliderDemo } from './demos/slider';
-import { SonnerDemo } from './demos/sonner';
-import { SpinnerDemo } from './demos/spinner';
-import { SwitchDemo } from './demos/switch';
-import { TableDemo } from './demos/table';
-import { TabsDemo } from './demos/tabs';
-import { TextareaDemo } from './demos/textarea';
-import { ToastDemo } from './demos/toast';
-import { ToggleDemo } from './demos/toggle';
-import { ToggleGroupDemo } from './demos/toggle-group';
-import { TooltipDemo } from './demos/tooltip';
+import { lazy, type ComponentType } from 'react';
 import {
   ColorsPage,
   FontsPage,
   LayoutPage,
   OverviewPage,
 } from './foundations';
+
+function lazyPage(load: () => Promise<ComponentType>) {
+  return lazy(async () => ({ default: await load() }));
+}
+
+const AccordionDemo = lazyPage(() =>
+  import('./demos/accordion').then(({ AccordionDemo }) => AccordionDemo),
+);
+const AlertDemo = lazyPage(() =>
+  import('./demos/alert').then(({ AlertDemo }) => AlertDemo),
+);
+const AlertDialogDemo = lazyPage(() =>
+  import('./demos/alert-dialog').then(({ AlertDialogDemo }) => AlertDialogDemo),
+);
+const AspectRatioDemo = lazyPage(() =>
+  import('./demos/aspect-ratio').then(({ AspectRatioDemo }) => AspectRatioDemo),
+);
+const AvatarDemo = lazyPage(() =>
+  import('./demos/avatar').then(({ AvatarDemo }) => AvatarDemo),
+);
+const BadgeDemo = lazyPage(() =>
+  import('./demos/badge').then(({ BadgeDemo }) => BadgeDemo),
+);
+const BreadcrumbDemo = lazyPage(() =>
+  import('./demos/breadcrumb').then(({ BreadcrumbDemo }) => BreadcrumbDemo),
+);
+const ButtonDemo = lazyPage(() =>
+  import('./demos/button').then(({ ButtonDemo }) => ButtonDemo),
+);
+const ButtonGroupDemo = lazyPage(() =>
+  import('./demos/button-group').then(({ ButtonGroupDemo }) => ButtonGroupDemo),
+);
+const CalendarDemo = lazyPage(() =>
+  import('./demos/calendar').then(({ CalendarDemo }) => CalendarDemo),
+);
+const CardDemo = lazyPage(() =>
+  import('./demos/card').then(({ CardDemo }) => CardDemo),
+);
+const CarouselDemo = lazyPage(() =>
+  import('./demos/carousel').then(({ CarouselDemo }) => CarouselDemo),
+);
+const ChartDemo = lazyPage(() =>
+  import('./demos/chart').then(({ ChartDemo }) => ChartDemo),
+);
+const CheckboxDemo = lazyPage(() =>
+  import('./demos/checkbox').then(({ CheckboxDemo }) => CheckboxDemo),
+);
+const CollapsibleDemo = lazyPage(() =>
+  import('./demos/collapsible').then(({ CollapsibleDemo }) => CollapsibleDemo),
+);
+const CommandDemo = lazyPage(() =>
+  import('./demos/command').then(({ CommandDemo }) => CommandDemo),
+);
+const ContextMenuDemo = lazyPage(() =>
+  import('./demos/context-menu').then(({ ContextMenuDemo }) => ContextMenuDemo),
+);
+const DialogDemo = lazyPage(() =>
+  import('./demos/dialog').then(({ DialogDemo }) => DialogDemo),
+);
+const DrawerDemo = lazyPage(() =>
+  import('./demos/drawer').then(({ DrawerDemo }) => DrawerDemo),
+);
+const DropdownMenuDemo = lazyPage(() =>
+  import('./demos/dropdown-menu').then(
+    ({ DropdownMenuDemo }) => DropdownMenuDemo,
+  ),
+);
+const EmptyDemo = lazyPage(() =>
+  import('./demos/empty').then(({ EmptyDemo }) => EmptyDemo),
+);
+const FieldDemo = lazyPage(() =>
+  import('./demos/field').then(({ FieldDemo }) => FieldDemo),
+);
+const FormDemo = lazyPage(() =>
+  import('./demos/form').then(({ FormDemo }) => FormDemo),
+);
+const HoverCardDemo = lazyPage(() =>
+  import('./demos/hover-card').then(({ HoverCardDemo }) => HoverCardDemo),
+);
+const InputDemo = lazyPage(() =>
+  import('./demos/input').then(({ InputDemo }) => InputDemo),
+);
+const InputGroupDemo = lazyPage(() =>
+  import('./demos/input-group').then(({ InputGroupDemo }) => InputGroupDemo),
+);
+const InputOtpDemo = lazyPage(() =>
+  import('./demos/input-otp').then(({ InputOtpDemo }) => InputOtpDemo),
+);
+const ItemDemo = lazyPage(() =>
+  import('./demos/item').then(({ ItemDemo }) => ItemDemo),
+);
+const KbdDemo = lazyPage(() =>
+  import('./demos/kbd').then(({ KbdDemo }) => KbdDemo),
+);
+const MenubarDemo = lazyPage(() =>
+  import('./demos/menubar').then(({ MenubarDemo }) => MenubarDemo),
+);
+const NavigationMenuDemo = lazyPage(() =>
+  import('./demos/navigation-menu').then(
+    ({ NavigationMenuDemo }) => NavigationMenuDemo,
+  ),
+);
+const PaginationDemo = lazyPage(() =>
+  import('./demos/pagination').then(({ PaginationDemo }) => PaginationDemo),
+);
+const PopoverDemo = lazyPage(() =>
+  import('./demos/popover').then(({ PopoverDemo }) => PopoverDemo),
+);
+const ProgressDemo = lazyPage(() =>
+  import('./demos/progress').then(({ ProgressDemo }) => ProgressDemo),
+);
+const RadioGroupDemo = lazyPage(() =>
+  import('./demos/radio-group').then(({ RadioGroupDemo }) => RadioGroupDemo),
+);
+const ResizableDemo = lazyPage(() =>
+  import('./demos/resizable').then(({ ResizableDemo }) => ResizableDemo),
+);
+const ScrollAreaDemo = lazyPage(() =>
+  import('./demos/scroll-area').then(({ ScrollAreaDemo }) => ScrollAreaDemo),
+);
+const SelectDemo = lazyPage(() =>
+  import('./demos/select').then(({ SelectDemo }) => SelectDemo),
+);
+const SeparatorDemo = lazyPage(() =>
+  import('./demos/separator').then(({ SeparatorDemo }) => SeparatorDemo),
+);
+const SheetDemo = lazyPage(() =>
+  import('./demos/sheet').then(({ SheetDemo }) => SheetDemo),
+);
+const SidebarDemo = lazyPage(() =>
+  import('./demos/sidebar').then(({ SidebarDemo }) => SidebarDemo),
+);
+const SkeletonDemo = lazyPage(() =>
+  import('./demos/skeleton').then(({ SkeletonDemo }) => SkeletonDemo),
+);
+const SliderDemo = lazyPage(() =>
+  import('./demos/slider').then(({ SliderDemo }) => SliderDemo),
+);
+const SonnerDemo = lazyPage(() =>
+  import('./demos/sonner').then(({ SonnerDemo }) => SonnerDemo),
+);
+const SpinnerDemo = lazyPage(() =>
+  import('./demos/spinner').then(({ SpinnerDemo }) => SpinnerDemo),
+);
+const SwitchDemo = lazyPage(() =>
+  import('./demos/switch').then(({ SwitchDemo }) => SwitchDemo),
+);
+const TableDemo = lazyPage(() =>
+  import('./demos/table').then(({ TableDemo }) => TableDemo),
+);
+const TabsDemo = lazyPage(() =>
+  import('./demos/tabs').then(({ TabsDemo }) => TabsDemo),
+);
+const TextareaDemo = lazyPage(() =>
+  import('./demos/textarea').then(({ TextareaDemo }) => TextareaDemo),
+);
+const ToastDemo = lazyPage(() =>
+  import('./demos/toast').then(({ ToastDemo }) => ToastDemo),
+);
+const ToggleDemo = lazyPage(() =>
+  import('./demos/toggle').then(({ ToggleDemo }) => ToggleDemo),
+);
+const ToggleGroupDemo = lazyPage(() =>
+  import('./demos/toggle-group').then(({ ToggleGroupDemo }) => ToggleGroupDemo),
+);
+const TooltipDemo = lazyPage(() =>
+  import('./demos/tooltip').then(({ TooltipDemo }) => TooltipDemo),
+);
 
 export type PreviewEntry = {
   // Globally unique across every group — it is the deep-link slug (`#page=<id>`)

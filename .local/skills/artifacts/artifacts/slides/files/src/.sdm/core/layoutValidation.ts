@@ -3,17 +3,17 @@ import {
   SDM_SLIDE_WIDTH,
   type Element,
   type Frame,
-  type Paragraph,
   type SlideDocument,
   type TextBody,
   type TextRun,
 } from './schema';
+import { effectiveParagraph, type EffectiveParagraph } from './text/listStyles';
+import { paragraphMarkers } from './text/paragraphMarkers';
 
 export type SdmLayoutIssueCode =
   | 'canvas-size'
   | 'table-span'
-  | 'text-autofit'
-  | 'text-autofit-resize'
+  | 'text-overflow'
   | 'text-out-of-bounds'
   | 'text-overlap';
 
@@ -50,8 +50,7 @@ interface Line {
 interface TextLayout {
   lines: Array<Line>;
   height: number;
-  longestToken: number;
-  availableWidth: number;
+  fitsWidth: boolean;
   availableHeight: number;
 }
 
@@ -62,13 +61,10 @@ interface ParagraphLayout {
 
 interface OwnerLayout {
   owner: TextOwner;
-  fit: number;
-  fitsAtMinimum: boolean;
-  lines: Array<Line>;
+  fits: boolean;
+  visibleLines: Array<Line>;
 }
 
-const MIN_AUTOFIT = 0.3;
-const MIN_ACCEPTABLE_FIT = 0.9;
 const DEFAULT_SIZE_PT = 18;
 
 export function analyzeSlideLayout(
@@ -109,35 +105,18 @@ export function analyzeSlideLayout(
     owner.clip ? intersectRects(canvas, owner.clip) : canvas;
 
   for (const layout of layouts) {
-    const { owner, fit, fitsAtMinimum } = layout;
-    if (!fitsAtMinimum || fit < MIN_ACCEPTABLE_FIT) {
-      if (owner.body.autofit === 'resize') {
-        issues.push({
-          code: 'text-autofit-resize',
-          elementIds: [owner.id],
-          message: `Text element "${owner.id}" uses autofit "resize", which rendering does not implement — the ${Math.round(owner.frame.width)}x${Math.round(owner.frame.height)} frame will not grow. Increase the frame, shorten the copy, or switch to shrink autofit.`,
-        });
-      } else {
-        const percent = Math.round(fit * 100);
-        const minimumSize =
-          Math.round(minimumRunSize(owner.body) * fit * 10) / 10;
-        let message = `Text element "${owner.id}" needs about ${percent}% autofit, reducing its smallest run to about ${minimumSize}pt. Keep at least 90% by increasing the frame, widening it, or shortening the copy.`;
-        if (owner.body.autofit === 'none') {
-          message = `Text element "${owner.id}" does not fit its ${Math.round(owner.frame.width)}x${Math.round(owner.frame.height)} frame with autofit disabled. Increase the frame, shorten the copy, or enable shrink autofit.`;
-        } else if (!fitsAtMinimum) {
-          message = `Text element "${owner.id}" does not fit its ${Math.round(owner.frame.width)}x${Math.round(owner.frame.height)} frame even at minimum autofit. Increase the frame, shorten the copy, or split the slide.`;
-        }
-        issues.push({
-          code: 'text-autofit',
-          elementIds: [owner.id],
-          message,
-        });
-      }
+    const { owner, fits } = layout;
+    if (!fits) {
+      issues.push({
+        code: 'text-overflow',
+        elementIds: [owner.id],
+        message: `Text element "${owner.id}" overflows its ${Math.round(owner.frame.width)}x${Math.round(owner.frame.height)} frame at its authored font size. Increase the frame, shorten the copy, or reduce sizePt.`,
+      });
     }
 
     if (!owner.transformed) {
       const visible = visibleRect(owner);
-      const outside = layout.lines.some(
+      const outside = layout.visibleLines.some(
         (line) =>
           line.x < visible.x - 2 ||
           line.y < visible.y - 2 ||
@@ -161,14 +140,17 @@ export function analyzeSlideLayout(
     if (left.owner.transformed) {
       continue;
     }
-    const leftLines = clipLines(left.lines, visibleRect(left.owner));
+    const leftLines = clipLines(left.visibleLines, visibleRect(left.owner));
     for (
       let rightIndex = leftIndex + 1;
       rightIndex < layouts.length;
       rightIndex += 1
     ) {
       const right = layouts[rightIndex];
-      const rightLines = clipLines(right.lines, visibleRect(right.owner));
+      const rightLines = clipLines(
+        right.visibleLines,
+        visibleRect(right.owner),
+      );
       if (right.owner.transformed || !linesOverlap(leftLines, rightLines)) {
         continue;
       }
@@ -185,6 +167,15 @@ export function analyzeSlideLayout(
 
 function identityTransform(): Transform {
   return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+}
+
+function transformFrame(frame: Frame, transform: Transform): Frame {
+  return {
+    x: transform.x + frame.x * transform.scaleX,
+    y: transform.y + frame.y * transform.scaleY,
+    width: frame.width * transform.scaleX,
+    height: frame.height * transform.scaleY,
+  };
 }
 
 function intersectRects(left: Frame, right: Frame): Frame {
@@ -420,55 +411,21 @@ function cumulativeOffsets(sizes: Array<number>, start: number): Array<number> {
 }
 
 function layoutOwner(owner: TextOwner): OwnerLayout {
-  const atOne = layoutText(owner.body, owner.frame, 1);
-  if (layoutFits(atOne)) {
-    return {
-      owner,
-      fit: 1,
-      fitsAtMinimum: true,
-      lines: transformLines(atOne.lines, owner.transform),
-    };
-  }
-  if (owner.body.autofit === 'none' || owner.body.autofit === 'resize') {
-    return {
-      owner,
-      fit: 1,
-      fitsAtMinimum: false,
-      lines: transformLines(atOne.lines, owner.transform),
-    };
-  }
-
-  const atMinimum = layoutText(owner.body, owner.frame, MIN_AUTOFIT);
-  if (!layoutFits(atMinimum)) {
-    return {
-      owner,
-      fit: MIN_AUTOFIT,
-      fitsAtMinimum: false,
-      lines: transformLines(atMinimum.lines, owner.transform),
-    };
-  }
-
-  let low = MIN_AUTOFIT;
-  let high = 1;
-  for (let iteration = 0; iteration < 12; iteration += 1) {
-    const middle = (low + high) / 2;
-    if (layoutFits(layoutText(owner.body, owner.frame, middle))) {
-      low = middle;
-    } else {
-      high = middle;
-    }
-  }
-  const fitted = layoutText(owner.body, owner.frame, low);
+  const layout = layoutText(owner.body, owner.frame);
+  const lines = transformLines(layout.lines, owner.transform);
+  const visibleLines =
+    owner.body.overflow === 'visible'
+      ? lines
+      : clipLines(lines, transformFrame(owner.frame, owner.transform));
 
   return {
     owner,
-    fit: low,
-    fitsAtMinimum: true,
-    lines: transformLines(fitted.lines, owner.transform),
+    fits: layoutFits(layout),
+    visibleLines,
   };
 }
 
-function layoutText(body: TextBody, frame: Frame, scale: number): TextLayout {
+function layoutText(body: TextBody, frame: Frame): TextLayout {
   const insets = body.insetsPt ?? { top: 0, right: 0, bottom: 0, left: 0 };
   const left = frame.x + insets.left * 2;
   const top = frame.y + insets.top * 2;
@@ -482,24 +439,43 @@ function layoutText(body: TextBody, frame: Frame, scale: number): TextLayout {
   );
   const lines: Array<Line> = [];
   let cursorY = 0;
-  let longestToken = 0;
+  let fitsWidth = true;
+  const effectiveParagraphs = body.paragraphs.map((paragraph) =>
+    effectiveParagraph(paragraph),
+  );
+  const markers = paragraphMarkers(effectiveParagraphs);
 
-  for (const paragraph of body.paragraphs) {
-    cursorY += (paragraph.spaceBeforePt ?? 0) * 2 * scale;
-    const paragraphLines = layoutParagraph(paragraph, availableWidth, scale);
-    longestToken = Math.max(longestToken, paragraphLines.longestToken);
-    for (const line of paragraphLines.lines) {
-      const align = paragraph.align ?? 'left';
-      let lineX = 0;
-      if (align === 'center') {
-        lineX = (availableWidth - line.width) / 2;
-      } else if (align === 'right') {
-        lineX = availableWidth - line.width;
+  for (const [index, effective] of effectiveParagraphs.entries()) {
+    cursorY += effective.spaceBeforePt * 2;
+    const paragraphWidth = Math.max(1, availableWidth - effective.indentPt * 2);
+    const paragraphLines = layoutParagraph(
+      effective,
+      markers[index] ?? '',
+      paragraphWidth,
+    );
+    // The renderer pulls the first line into the hanging-indent gutter via a
+    // negative text-indent, so the marker does not reduce the text width.
+    const hangingWidth = effective.hangingIndentPt * 2;
+    fitsWidth &&=
+      paragraphLines.longestToken <= paragraphWidth &&
+      paragraphLines.lines.every(
+        (line, index) =>
+          line.width <= paragraphWidth + (index === 0 ? hangingWidth : 0),
+      );
+    for (const [lineIndex, line] of paragraphLines.lines.entries()) {
+      let lineX = effective.indentPt * 2;
+      if (lineIndex === 0 && effective.hangingIndentPt > 0) {
+        lineX -= effective.hangingIndentPt * 2;
+      }
+      if (effective.align === 'center') {
+        lineX += (paragraphWidth - line.width) / 2;
+      } else if (effective.align === 'right') {
+        lineX += paragraphWidth - line.width;
       }
       lines.push({ ...line, x: left + lineX, y: top + cursorY });
       cursorY += line.height;
     }
-    cursorY += (paragraph.spaceAfterPt ?? 0) * 2 * scale;
+    cursorY += effective.spaceAfterPt * 2;
   }
 
   const verticalSlack = Math.max(0, availableHeight - cursorY);
@@ -518,22 +494,21 @@ function layoutText(body: TextBody, frame: Frame, scale: number): TextLayout {
   return {
     lines,
     height: cursorY,
-    longestToken,
-    availableWidth,
+    fitsWidth,
     availableHeight,
   };
 }
 
 function layoutParagraph(
-  paragraph: Paragraph,
+  paragraph: EffectiveParagraph,
+  marker: string,
   availableWidth: number,
-  scale: number,
 ): ParagraphLayout {
-  const lineHeightMultiplier = paragraph.lineHeight ?? 1.2;
+  const lineHeightMultiplier = paragraph.lineHeight;
   const lines: Array<Line> = [];
   let lineWidth = 0;
   let trailingWhitespace = 0;
-  let lineHeight = defaultLineHeight(paragraph, scale);
+  let lineHeight = defaultLineHeight(paragraph);
   let longestToken = 0;
 
   const finishLine = () => {
@@ -545,14 +520,15 @@ function layoutParagraph(
     });
     lineWidth = 0;
     trailingWhitespace = 0;
-    lineHeight = defaultLineHeight(paragraph, scale);
+    lineHeight = defaultLineHeight(paragraph);
   };
 
   /* Adjacent styled runs render as one unbreakable word unless whitespace
    * separates them, so word fragments merge across run boundaries. */
   const tokens: Array<Token> = [];
-  for (const run of paragraph.runs) {
-    for (const token of tokenizeRun(run, lineHeightMultiplier, scale)) {
+  for (const source of paragraph.runs) {
+    const run = { ...paragraph.defaultRunStyle, ...source };
+    for (const token of tokenizeRun(run, lineHeightMultiplier)) {
       const previous = tokens[tokens.length - 1];
       if (
         previous &&
@@ -569,21 +545,27 @@ function layoutParagraph(
       }
     }
   }
-  if (paragraph.bullet && paragraph.bullet.kind !== 'none') {
-    const run = paragraph.runs[0] ?? { text: '', sizePt: DEFAULT_SIZE_PT };
-    const marker =
-      paragraph.bullet.kind === 'character'
-        ? `${paragraph.bullet.character} `
-        : `${paragraph.bullet.startAt ?? 1}. `;
-    tokens.unshift({
+  let markerToken: Token | undefined;
+  if (marker !== '') {
+    const run = {
+      ...paragraph.defaultRunStyle,
+      ...paragraph.runs[0],
+      ...paragraph.markerStyle,
+      text: '',
+    };
+    // The marker span renders as an inline-block whose min-width is the
+    // hanging indent, sitting in the gutter the negative text-indent opens.
+    markerToken = {
       text: marker,
-      width: textWidth(marker, run, scale),
-      height: runHeight(run, lineHeightMultiplier, scale),
+      width: Math.max(textWidth(marker, run), paragraph.hangingIndentPt * 2),
+      height: runHeight(run, lineHeightMultiplier),
       whitespace: false,
       newline: false,
-    });
+    };
+    tokens.unshift(markerToken);
   }
 
+  const hangingWidth = paragraph.hangingIndentPt * 2;
   for (const token of tokens) {
     if (token.newline) {
       finishLine();
@@ -598,8 +580,11 @@ function layoutParagraph(
       lineHeight = Math.max(lineHeight, token.height);
       continue;
     }
-    longestToken = Math.max(longestToken, token.width);
-    if (lineWidth > 0 && lineWidth + token.width > availableWidth) {
+    if (token !== markerToken) {
+      longestToken = Math.max(longestToken, token.width);
+    }
+    const lineBudget = availableWidth + (lines.length === 0 ? hangingWidth : 0);
+    if (lineWidth > 0 && lineWidth + token.width > lineBudget) {
       finishLine();
     }
     lineWidth += token.width;
@@ -624,27 +609,23 @@ interface Token {
   newline: boolean;
 }
 
-function tokenizeRun(
-  run: TextRun,
-  lineHeight: number,
-  scale: number,
-): Array<Token> {
+function tokenizeRun(run: TextRun, lineHeight: number): Array<Token> {
   const parts = run.text.split(/(\n|[\t ]+)/).filter(Boolean);
 
   return parts.map((text) => ({
     text,
-    width: text === '\n' ? 0 : textWidth(text, run, scale),
-    height: runHeight(run, lineHeight, scale),
+    width: text === '\n' ? 0 : textWidth(text, run),
+    height: runHeight(run, lineHeight),
     whitespace: /^[\t ]+$/.test(text),
     newline: text === '\n',
   }));
 }
 
-function textWidth(text: string, run: TextRun, scale: number): number {
-  const size = (run.sizePt ?? DEFAULT_SIZE_PT) * 2 * scale;
+function textWidth(text: string, run: TextRun): number {
+  const size = (run.sizePt ?? DEFAULT_SIZE_PT) * 2;
   const glyphs = Array.from(text);
   const ems = glyphs.reduce((sum, glyph) => sum + glyphWidth(glyph), 0);
-  const spacing = (run.letterSpacingPt ?? 0) * 2 * scale;
+  const spacing = (run.letterSpacingPt ?? 0) * 2;
 
   return ems * size + glyphs.length * spacing;
 }
@@ -668,25 +649,31 @@ function glyphWidth(glyph: string): number {
   return 0.55;
 }
 
-function runHeight(run: TextRun, lineHeight: number, scale: number): number {
-  return (run.sizePt ?? DEFAULT_SIZE_PT) * 2 * lineHeight * scale;
+function runHeight(run: TextRun, lineHeight: number): number {
+  return (run.sizePt ?? DEFAULT_SIZE_PT) * 2 * lineHeight;
 }
 
-function defaultLineHeight(paragraph: Paragraph, scale: number): number {
-  const largest = paragraph.runs.reduce(
-    (size, run) => Math.max(size, run.sizePt ?? DEFAULT_SIZE_PT),
-    DEFAULT_SIZE_PT,
+function defaultLineHeight(paragraph: EffectiveParagraph): number {
+  const sizes = paragraph.runs.map(
+    (run) => run.sizePt ?? paragraph.defaultRunStyle.sizePt ?? DEFAULT_SIZE_PT,
   );
+  if (paragraph.bullet !== undefined && paragraph.runs.length > 0) {
+    sizes.push(
+      paragraph.runs[0]?.sizePt ??
+        paragraph.defaultRunStyle.sizePt ??
+        DEFAULT_SIZE_PT,
+    );
+  }
+  const largest =
+    sizes.length === 0
+      ? (paragraph.defaultRunStyle.sizePt ?? DEFAULT_SIZE_PT)
+      : Math.max(...sizes);
 
-  return largest * 2 * (paragraph.lineHeight ?? 1.2) * scale;
+  return (largest || DEFAULT_SIZE_PT) * 2 * paragraph.lineHeight;
 }
 
 function layoutFits(layout: TextLayout): boolean {
-  return (
-    layout.longestToken <= layout.availableWidth &&
-    layout.lines.every((line) => line.width <= layout.availableWidth) &&
-    layout.height <= layout.availableHeight
-  );
+  return layout.fitsWidth && layout.height <= layout.availableHeight;
 }
 
 function transformLines(lines: Array<Line>, transform: Transform): Array<Line> {
@@ -713,14 +700,4 @@ function linesOverlap(left: Array<Line>, right: Array<Line>): boolean {
       return smaller > 0 && intersection / smaller > 0.05;
     }),
   );
-}
-
-function minimumRunSize(body: TextBody): number {
-  const sizes = body.paragraphs.flatMap((paragraph) =>
-    paragraph.runs
-      .filter((run) => run.text.trim().length > 0)
-      .map((run) => run.sizePt ?? DEFAULT_SIZE_PT),
-  );
-
-  return sizes.length > 0 ? Math.min(...sizes) : DEFAULT_SIZE_PT;
 }

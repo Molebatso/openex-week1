@@ -1,4 +1,4 @@
-import type { Frame, Size } from './core/schema';
+import type { Element, Frame } from './core/schema';
 
 export type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
 
@@ -28,18 +28,25 @@ export const HANDLE_POS: Record<Handle, { left: string; top: string }> = {
 
 const MIN_SIZE = 8;
 
-export function deltaToStage(
-  stage: HTMLElement,
-  dxClient: number,
-  dyClient: number,
-  size: Size,
-): { dx: number; dy: number } {
-  const rect = stage.getBoundingClientRect();
+export function elementTransform(
+  element: Pick<Element, 'rotationDeg' | 'flipH' | 'flipV'>,
+  rotationDeg = element.rotationDeg,
+): string | undefined {
+  return (
+    [
+      rotationDeg ? `rotate(${rotationDeg}deg)` : '',
+      element.flipH ? 'scaleX(-1)' : '',
+      element.flipV ? 'scaleY(-1)' : '',
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined
+  );
+}
 
-  return {
-    dx: rect.width ? (dxClient / rect.width) * size.width : 0,
-    dy: rect.height ? (dyClient / rect.height) * size.height : 0,
-  };
+export function rotationTransform(
+  rotationDeg: number | undefined,
+): string | undefined {
+  return rotationDeg ? `rotate(${rotationDeg}deg)` : undefined;
 }
 
 export function moveFrame(start: Frame, dx: number, dy: number): Frame {
@@ -56,7 +63,13 @@ export function resizeFrame(
   dx: number,
   dy: number,
   keepAspect = false,
+  rotationDeg = 0,
 ): Frame {
+  const rotationRad = (rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(rotationRad);
+  const sin = Math.sin(rotationRad);
+  const localDx = dx * cos + dy * sin;
+  const localDy = -dx * sin + dy * cos;
   const east = handle.includes('e');
   const west = handle.includes('w');
   const south = handle.includes('s');
@@ -66,14 +79,14 @@ export function resizeFrame(
   let height = start.height;
 
   if (east) {
-    width = Math.max(MIN_SIZE, start.width + dx);
+    width = Math.max(MIN_SIZE, start.width + localDx);
   } else if (west) {
-    width = Math.max(MIN_SIZE, start.width - dx);
+    width = Math.max(MIN_SIZE, start.width - localDx);
   }
   if (south) {
-    height = Math.max(MIN_SIZE, start.height + dy);
+    height = Math.max(MIN_SIZE, start.height + localDy);
   } else if (north) {
-    height = Math.max(MIN_SIZE, start.height - dy);
+    height = Math.max(MIN_SIZE, start.height - localDy);
   }
 
   if (keepAspect && (east || west) && (north || south)) {
@@ -92,12 +105,24 @@ export function resizeFrame(
     height = start.height * scale;
   }
 
-  const x = west ? start.x + start.width - width : start.x;
-  const y = north ? start.y + start.height - height : start.y;
+  const localX = west ? start.width - width : 0;
+  const localY = north ? start.height - height : 0;
+  const localCenterX = localX + width / 2 - start.width / 2;
+  const localCenterY = localY + height / 2 - start.height / 2;
+  const centerX =
+    start.x +
+    start.width / 2 +
+    localCenterX * cos -
+    localCenterY * sin;
+  const centerY =
+    start.y +
+    start.height / 2 +
+    localCenterX * sin +
+    localCenterY * cos;
 
   return {
-    x: Math.round(x),
-    y: Math.round(y),
+    x: Math.round(centerX - width / 2),
+    y: Math.round(centerY - height / 2),
     width: Math.round(width),
     height: Math.round(height),
   };

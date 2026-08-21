@@ -3,13 +3,11 @@ import {
   createContext,
   useContext,
   useId,
-  useLayoutEffect,
   useRef,
   type CSSProperties,
   type ElementType,
   type MouseEvent,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import {
   SDM_POINT_TO_UNIT,
@@ -17,12 +15,18 @@ import {
   type Element,
   type JsonValue,
   type Paint,
-  type Paragraph,
+  type RunStyle,
   type SlideDocument,
   type Stroke,
   type TextBody,
   type Theme,
 } from './core/schema';
+import {
+  paragraphLayoutCss,
+  paragraphMarkerCss,
+} from './core/text/inlineStyles';
+import { effectiveParagraph, paragraphMarkers } from './core/text';
+import { elementTransform } from './geometry';
 import { shapePathFor, type ShapePath } from './shapePaths';
 import {
   paintToBackground,
@@ -33,6 +37,10 @@ import {
   strokeToBorder,
   textRunStyle,
 } from './style';
+import {
+  SdmTextEditor,
+  type SdmTextEditorOptions,
+} from './SdmTextEditor';
 
 export type WidgetProps = Record<string, JsonValue>;
 export type WidgetModule = Record<string, unknown>;
@@ -46,60 +54,6 @@ export const SdmRenderContext = createContext<SdmRenderContextValue>({
   baseUrl: '/',
   widgets: {},
 });
-
-const MIN_FIT = 0.3;
-
-function useAutofit(
-  boxRef: RefObject<HTMLDivElement | null>,
-  contentRef: RefObject<HTMLDivElement | null>,
-  enabled: boolean,
-  padXUnits: number,
-  padYUnits: number,
-  signature: string,
-): void {
-  useLayoutEffect(() => {
-    const box = boxRef.current;
-    const content = contentRef.current;
-    if (!box || !content) {
-      return;
-    }
-    const refit = () => {
-      box.style.setProperty('--sdm-fit', '1');
-      if (!enabled) {
-        return;
-      }
-      let fit = 1;
-      for (let i = 0; i < 5; i += 1) {
-        const availH = box.clientHeight - padYUnits;
-        const availW = box.clientWidth - padXUnits;
-        if (availH <= 0 || availW <= 0) {
-          break;
-        }
-        const over = Math.max(
-          content.scrollHeight / availH,
-          content.scrollWidth / availW,
-        );
-        if (over <= 1.01) {
-          break;
-        }
-        fit = Math.max(MIN_FIT, fit / over);
-        box.style.setProperty('--sdm-fit', String(fit));
-        if (fit <= MIN_FIT) {
-          break;
-        }
-      }
-    };
-    refit();
-    if (!enabled) {
-      return;
-    }
-    const observer = new ResizeObserver(refit);
-    observer.observe(box);
-
-    return () => observer.disconnect();
-  }, [boxRef, contentRef, enabled, padXUnits, padYUnits, signature]);
-}
-
 function frameStyle(element: Element): CSSProperties {
   return {
     position: 'absolute',
@@ -107,14 +61,7 @@ function frameStyle(element: Element): CSSProperties {
     top: element.frame.y,
     width: element.frame.width,
     height: element.frame.height,
-    transform:
-      [
-        element.rotationDeg ? `rotate(${element.rotationDeg}deg)` : '',
-        element.flipH ? 'scaleX(-1)' : '',
-        element.flipV ? 'scaleY(-1)' : '',
-      ]
-        .filter(Boolean)
-        .join(' ') || undefined,
+    transform: elementTransform(element),
     opacity: element.opacity,
     display: element.hidden ? 'none' : undefined,
     transformOrigin: 'center center',
@@ -124,18 +71,25 @@ function frameStyle(element: Element): CSSProperties {
 
 function TextRunView({
   run,
+  defaultRunStyle,
   theme,
   onAction,
 }: {
   run: TextBody['paragraphs'][number]['runs'][number];
+  defaultRunStyle: RunStyle | undefined;
   theme: Theme | undefined;
   onAction: ((action: Action) => void) | undefined;
 }) {
   const content = run.text === '' ? '\u00a0' : run.text;
+  const style = textRunStyle({ ...defaultRunStyle, ...run }, theme);
   if (run.action?.kind === 'openUrl') {
     const safeUrl = sanitizeActionUrl(run.action.url);
     if (!safeUrl) {
-      return <span style={textRunStyle(run, theme)}>{content}</span>;
+      return (
+        <span data-sdm-text-run="" style={style}>
+          {content}
+        </span>
+      );
     }
 
     return (
@@ -144,7 +98,8 @@ function TextRunView({
         target={run.action.target === 'sameWindow' ? '_self' : '_blank'}
         rel="noreferrer"
         data-sdm-action={JSON.stringify(run.action)}
-        style={textRunStyle(run, theme)}
+        data-sdm-text-run=""
+        style={style}
         onClick={(event) => event.stopPropagation()}
       >
         {content}
@@ -159,7 +114,8 @@ function TextRunView({
         role="link"
         tabIndex={0}
         data-sdm-action={JSON.stringify(action)}
-        style={{ ...textRunStyle(run, theme), cursor: 'pointer' }}
+        data-sdm-text-run=""
+        style={{ ...style, cursor: 'pointer' }}
         onClick={(event) => {
           event.stopPropagation();
           onAction?.(action);
@@ -178,50 +134,23 @@ function TextRunView({
     );
   }
 
-  return <span style={textRunStyle(run, theme)}>{content}</span>;
-}
-
-const INDENT_PT_PER_LEVEL = 36;
-
-/* The tally continues across numbered paragraphs per level; startAt
- * overrides it, and an interrupting paragraph restarts its level and deeper. */
-function paragraphMarkers(paragraphs: Array<Paragraph>): Array<string> {
-  const counters = new Map<number, number>();
-
-  return paragraphs.map((paragraph) => {
-    const level = paragraph.level ?? 0;
-    if (paragraph.bullet?.kind === 'number') {
-      const count = paragraph.bullet.startAt ?? (counters.get(level) ?? 0) + 1;
-      counters.set(level, count);
-      for (const counterLevel of [...counters.keys()]) {
-        if (counterLevel > level) {
-          counters.delete(counterLevel);
-        }
-      }
-
-      return `${count}. `;
-    }
-    for (const counterLevel of [...counters.keys()]) {
-      if (counterLevel >= level) {
-        counters.delete(counterLevel);
-      }
-    }
-    if (paragraph.bullet?.kind === 'character') {
-      return `${paragraph.bullet.character} `;
-    }
-
-    return '';
-  });
+  return (
+    <span data-sdm-text-run="" style={style}>
+      {content}
+    </span>
+  );
 }
 
 export function TextBodyView({
   body,
   theme,
   onAction,
+  textEditor,
 }: {
   body: TextBody;
   theme?: Theme;
   onAction?: (action: Action) => void;
+  textEditor?: SdmTextEditorOptions;
 }) {
   let vertical = 'flex-start';
   if (body.verticalAlign === 'middle') {
@@ -230,24 +159,15 @@ export function TextBodyView({
     vertical = 'flex-end';
   }
   const inset = body.insetsPt;
-  const boxRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const padXUnits = inset ? (inset.left + inset.right) * SDM_POINT_TO_UNIT : 0;
-  const padYUnits = inset ? (inset.top + inset.bottom) * SDM_POINT_TO_UNIT : 0;
-  const autofitEnabled = body.autofit !== 'none';
-  useAutofit(
-    boxRef,
-    contentRef,
-    autofitEnabled,
-    padXUnits,
-    padYUnits,
-    JSON.stringify(body.paragraphs),
+  const effectiveParagraphs = body.paragraphs.map((paragraph) =>
+    effectiveParagraph(paragraph),
   );
-  const markers = paragraphMarkers(body.paragraphs);
+  const markers = paragraphMarkers(effectiveParagraphs);
 
   return (
     <div
-      ref={boxRef}
+      data-sdm-text-body=""
       style={{
         width: '100%',
         height: '100%',
@@ -261,47 +181,64 @@ export function TextBodyView({
         boxSizing: 'border-box',
       }}
     >
-      <div ref={contentRef}>
-        {body.paragraphs.map((paragraph, index) => {
-          const marker = markers[index] ?? '';
-          const markerRun = paragraph.runs[0] ?? { text: '' };
-          const hasMarker =
-            paragraph.bullet !== undefined && paragraph.bullet.kind !== 'none';
+      <div ref={contentRef} data-sdm-text-content="">
+        {textEditor === undefined ? (
+          body.paragraphs.map((paragraph, index) => {
+            const effective = effectiveParagraphs[index];
+            const marker = markers[index] ?? '';
+            const paragraphStyle = {
+              ...effective.defaultRunStyle,
+              ...paragraph.runs[0],
+            };
+            const hasMarker =
+              effective.bullet?.kind === 'character' ||
+              effective.bullet?.kind === 'number';
 
-          return (
-            <div
-              key={index}
-              style={{
-                textAlign: paragraph.align,
-                lineHeight: paragraph.lineHeight ?? 1.2,
-                paddingLeft: paragraph.level
-                  ? paragraph.level * INDENT_PT_PER_LEVEL * SDM_POINT_TO_UNIT
-                  : undefined,
-                marginTop: paragraph.spaceBeforePt
-                  ? paragraph.spaceBeforePt * SDM_POINT_TO_UNIT
-                  : undefined,
-                marginBottom: paragraph.spaceAfterPt
-                  ? paragraph.spaceAfterPt * SDM_POINT_TO_UNIT
-                  : undefined,
-              }}
-            >
-              {hasMarker ? (
-                <span style={textRunStyle(markerRun, theme)}>{marker}</span>
-              ) : null}
-              {paragraph.runs.map((run, runIndex) => (
-                <TextRunView
-                  key={runIndex}
-                  run={run}
-                  theme={theme}
-                  onAction={onAction}
-                />
-              ))}
-              {!hasMarker && paragraph.runs.length === 0 ? (
-                <span style={textRunStyle(markerRun, theme)}>{'\u200B'}</span>
-              ) : null}
-            </div>
-          );
-        })}
+            return (
+              <div
+                key={index}
+                data-sdm-text-paragraph-index={index}
+                style={paragraphLayoutCss(effective)}
+              >
+                {hasMarker ? (
+                  <span
+                    data-sdm-text-marker=""
+                    style={paragraphMarkerCss(effective, theme)}
+                  >
+                    {marker}
+                  </span>
+                ) : null}
+                {paragraph.runs.map((run, runIndex) => (
+                  <TextRunView
+                    key={runIndex}
+                    run={run}
+                    defaultRunStyle={effective.defaultRunStyle}
+                    theme={theme}
+                    onAction={onAction}
+                  />
+                ))}
+                {!hasMarker && paragraph.runs.length === 0 ? (
+                  <span style={textRunStyle(paragraphStyle, theme)}>
+                    {'\u200B'}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })
+        ) : (
+          <SdmTextEditor
+            body={body}
+            initialPoint={textEditor.initialPoint}
+            mountRef={contentRef}
+            onCancel={textEditor.onCancel}
+            onCommit={textEditor.onCommit}
+            onSelectionChange={textEditor.onSelectionChange}
+            registerCommitHandler={textEditor.registerCommitHandler}
+            registerCommandHandler={textEditor.registerCommandHandler}
+            registerPlacementHandler={textEditor.registerPlacementHandler}
+            theme={theme}
+          />
+        )}
       </div>
     </div>
   );
@@ -786,10 +723,12 @@ function ElementInner({
   element,
   document,
   onAction,
+  textEditor,
 }: {
   element: Element;
   document: SlideDocument;
   onAction?: (action: Action) => void;
+  textEditor?: SdmTextEditorOptions;
 }) {
   const { baseUrl } = useContext(SdmRenderContext);
   const theme = document.theme;
@@ -818,6 +757,7 @@ function ElementInner({
               body={element.body}
               theme={theme}
               onAction={onAction}
+              textEditor={textEditor}
             />
           </div>
         </div>
@@ -845,6 +785,7 @@ function ElementInner({
                   body={element.body}
                   theme={theme}
                   onAction={onAction}
+                  textEditor={textEditor}
                 />
               </div>
             ) : null}
@@ -881,6 +822,7 @@ function ElementInner({
                 body={element.body}
                 theme={theme}
                 onAction={onAction}
+                textEditor={textEditor}
               />
             </div>
           ) : null}
@@ -996,12 +938,22 @@ export function SdmElementView({
   element,
   document,
   onAction,
+  textEditor,
 }: {
   element: Element;
   document: SlideDocument;
   onAction?: (action: Action) => void;
+  textEditor?: SdmTextEditorOptions;
 }) {
   const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+    if (
+      event.target instanceof globalThis.Element &&
+      event.target.closest('[data-sdm-text-caret-active="true"]') !== null
+    ) {
+      event.stopPropagation();
+
+      return;
+    }
     if (!element.action) {
       return;
     }
@@ -1033,7 +985,12 @@ export function SdmElementView({
       }}
       onClick={handleClick}
     >
-      <ElementInner element={element} document={document} onAction={onAction} />
+      <ElementInner
+        element={element}
+        document={document}
+        onAction={onAction}
+        textEditor={textEditor}
+      />
     </div>
   );
 }

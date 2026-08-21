@@ -25,7 +25,7 @@ Use this skill when the user asks you a **question in chat** that requires data 
 
 - **The user wants to create a dashboard, visualization, or analytics interface** - use the `data-visualization` skill (it handles data fetching internally)
 - **The user asks to "build", "create", or "make" a dashboard/app with data** - use the `data-visualization` skill
-- The user needs to add an integration to their app (use the `integrations` skill)
+- The user only needs to add an integration (use the `integrations` skill)
 - Production database operations (use the database pane directly)
 - Asks to check deployment or server logs (use the `deployment` skill)
 
@@ -41,56 +41,74 @@ Code runs inline in the `codeExecution` sandbox -- no script files are needed.
 ## Workflow
 
 ```text
-1. SEARCH     -- searchIntegrations({ query }) to find the integration and read its status
+1. RESOLVE    -- read the `## Integrations` view for the integration and its status;
+               searchIntegrations({ mode: 'search', queries: [...] }) only if the view does not cover it
    -- status added     -- EXECUTE -- OUTPUT
-   -- status not_added
-      or not_setup     -- CONNECT (via `integrations` skill) -- EXECUTE -- OUTPUT
+   -- status authorized / not_added
+      or connectable / not_setup
+      or requires_setup -- CONNECT (via `integrations` skill) -- EXECUTE -- OUTPUT
 2. EXECUTE    -- listConnections(connectorName) inside "use impure", then call the API via getClient() or proxyFetch()
 ```
 
-- **SEARCH**: Call `searchIntegrations({ query })` (see "Calling `searchIntegrations`" below for the exact params and result shape). Its `status` field is the source of truth for whether a connection needs setup -- do NOT use `listConnections().length` to decide this (see "Deciding whether setup is needed" below).
-  - `added` -- a connection is already bound to this Repl. Skip straight to EXECUTE.
-  - `not_added` -- authorized at the account level but not bound to this Repl. Bind it via the `integrations` skill, then EXECUTE.
-  - `not_setup` -- not authorized yet. Set it up via the `integrations` skill (`ProposeIntegration` drives OAuth), then EXECUTE.
-- **CONNECT** (only when status is `not_setup` or `not_added`): Use `searchIntegrations`, `ProposeIntegration`, and `addIntegration` to set up the connection. See the `integrations` skill for the full lifecycle details.
+- **RESOLVE**: Read the `## Integrations` view. Each row carries the integration's id, its `connector` slug and its status; the view is a snapshot from when the prompt was built, so an `<automatic_updates>` entry about an integration takes precedence over it. Fall back to `searchIntegrations` only as a last resort, when you cannot find what the user is asking for in the view (no directory view, capability search, truncated entries); it reports the same statuses under their older names, `not_added` for `authorized` and `not_setup` for `connectable`. Either way the status is the source of truth for whether a connection needs setup -- do NOT use `listConnections().length` to decide this (see "Deciding whether setup is needed" below).
+- **CONNECT** (when status is not `added`): Use `ProposeIntegration` and, for `authorized` / `not_added`, `addIntegration` as directed by the `integrations` skill.
+- **RECOVER** (after a suspicious response from an `added` connection): Follow the authorization-recovery workflow in the `integrations` skill. Use the returned `authorizationType`, `connectionStatus`, and `statusMessage`. A disconnected OAuth connection or a structured provider authentication error such as `AUTHENTICATION_ERROR`, `UNAUTHENTICATED`, or "not authenticated" can justify one reconnect even when stored status is `healthy`. A missing permission requires a matching returned scope. A bare 401 or 403 requires diagnosis. An API-key error requires the user to repair the key or its provider permissions and update the Replit connection.
 - **EXECUTE**: This is the **only** step that calls `listConnections`, and only call it because you are about to call the API. Call `listConnections(connectorName)` inside a `"use impure"` function, then make the API call in the same `codeExecution` block via `getClient()` or `proxyFetch()`. Never call `listConnections` to "check" or "probe" a connection -- if you are not about to call the API, do not call it.
 - **OUTPUT**: Return the answer or confirmation to the user.
 
-> **Call `listConnections` only when you need the credentials.** It is a credential-fetch call, not a status check. The connect/no-connect decision belongs to `searchIntegrations` `status`; `listConnections` is for the EXECUTE step alone, when you are about to make the API call.
+> **Call `listConnections` only when you need the credentials.** It is a credential-fetch call, not a status check. The connect/no-connect decision belongs to the status RESOLVE reported; `listConnections` is for the EXECUTE step alone, when you are about to make the API call.
 
 ## Deciding whether setup is needed
 
-Use `searchIntegrations({ query }).integrations[].status`, NOT `listConnections`, to decide whether a connection needs to be set up:
+Use the `status` RESOLVE reported, NOT `listConnections`, to decide whether a connection needs to be set up:
 
-- `status: 'added'` -- bound to this Repl, ready to use. Go to EXECUTE.
-- `status: 'not_added'` -- authorized at the account level but not bound here. Bind via the `integrations` skill.
-- `status: 'not_setup'` -- not authorized. Drive OAuth via the `integrations` skill.
+- `added` -- bound to this Repl, ready to use. Go to EXECUTE.
+- `authorized` / `not_added` -- authorized at the account level but not bound here. Bind via the `integrations` skill.
+- `connectable` / `not_setup` -- not authorized. Drive OAuth via the `integrations` skill.
+- `requires_setup`, or a `connector_catalog:<name>` id from the view's unconfigured tail -- available in the catalog but not configured yet. Configure and authorize it via the `integrations` skill.
 
-Do **not** branch on `listConnections(connectorName).length === 0` for this decision. `listConnections` exists to hand credentials to your sandbox code, and it drops any connection whose credentials are withheld (e.g. credential-blocked account contexts) -- so it can return an empty array even when an account-level connection genuinely exists. That makes it an unreliable presence check and would push you into a needless re-connect prompt. `searchIntegrations`'s `status` does not have that blind spot.
+
+Do **not** branch on `listConnections(connectorName).length === 0` for this decision. `listConnections` exists to hand credentials to your sandbox code, and it drops any connection whose credentials are withheld (e.g. credential-blocked account contexts) -- so it can return an empty array even when an account-level connection genuinely exists. That makes it an unreliable presence check and would push you into a needless re-connect prompt. The Integrations view's `status` does not have that blind spot.
 
 ## Calling `searchIntegrations`
 
-`searchIntegrations` takes exactly one argument -- an object with a single `query` field -- and takes no other params:
+`searchIntegrations` takes exactly one argument in one of two modes: **search** (one to three non-empty `queries`, optionally scoped by `statuses`) or **list** (optionally scoped by `statuses`). Search phrases are classified together in one model call.
 
 ```ts
-searchIntegrations({ query: string }): Promise<{
+searchIntegrations(
+  | { mode: 'search'; queries: Array<string>; statuses?: Array<IntegrationStatus> }
+  | { mode: 'list'; statuses?: Array<IntegrationStatus> }
+): Promise<{
   integrations: Array<{
-    id: string;            // "connector:<id>" or "connection:<id>"
-    integrationType: 'connector' | 'connection';
+    id: string;            // "connector:<id>", "connection:<id>", or "connector_catalog:<slug>"
+    integrationType: 'connector' | 'connection' | 'connector_catalog';
     displayName: string;   // human-readable, e.g. "Google Sheets"
     description: string;
-    status: 'added' | 'not_added' | 'not_setup';
+    status: IntegrationStatus;
   }>;
   askForBlueprintConfirmation: boolean;
 }>
+// IntegrationStatus = 'added' | 'not_added' | 'not_setup' | 'requires_setup'
 ```
 
-How to build the `query` so a match is found reliably:
+**Search mode** -- how to build `queries` so matches are found reliably:
 
-- `query` is a **natural-language description of what you need**. The callback fetches the available connectors and connections, then uses an LLM classifier to pick the ones that semantically match your `query` -- it is **not** a literal substring or slug match, so `"spreadsheet"` can match `Google Sheets` and `"issue tracker"` can match `Linear`.
-- Describe the capability or product in plain terms (`"Google Sheets"`, `"payments"`, `"issue tracker"`). You do not need the exact `displayName` or the connector slug.
-- `query: ''` (empty string) skips the classifier and returns **every** available connector and connection (capped at 50). Use this to enumerate what is available when you are unsure what to ask for, then pick the right entry from `integrations` by `displayName`.
-- If a specific `query` returns no matching entry, retry with `query: ''` and scan the full list rather than assuming the integration does not exist.
+- Each string is a natural-language product or capability description. An integration may match any string; the strings are alternatives, not requirements.
+- Use one focused string for a clear request. Add up to two synonyms or adjacent capabilities only when useful, e.g. `{ mode: 'search', queries: ['email', 'mailbox', 'inbox'] }`.
+- Add `statuses` to scope candidates before matching: `{ mode: 'search', queries: ['email'], statuses: ['added', 'not_added'] }` searches existing authorizations only.
+- If a scoped search returns nothing, widen the statuses or use list mode before concluding the integration is unavailable.
+
+**List mode** -- list integrations by status with no classifier call:
+
+```ts
+searchIntegrations({ mode: 'list', statuses: ['added', 'not_added'] })          // existing authorizations
+searchIntegrations({ mode: 'list', statuses: ['not_setup', 'requires_setup'] }) // available to set up
+searchIntegrations({ mode: 'list' })                                             // every integration
+```
+
+- `['added', 'not_added']` answers "what has the user already authorized?" `not_added` items are not ready until attached with `addIntegration`.
+- `['not_setup', 'requires_setup']` answers "what could the user connect?"; both are set up via `ProposeIntegration`.
+- If a scoped call returns nothing, the product may still exist in the other scope -- check before concluding it does not exist.
 
 Read `status` (not array length) to decide setup, and read `id` to feed the other integration callbacks (`viewIntegration`, `addIntegration`) and the `ProposeIntegration` model tool.
 
@@ -100,9 +118,11 @@ Read `status` (not array length) to decide setup, and read `id` to feed the othe
 
 ### `listConnections(connectorName)` -- call only when you need the credentials
 
-`listConnections` is a credential-fetch call, not a status check. Call it **only** inside a `"use impure"` function when `searchIntegrations` already reports the connection as `added` **and** you are about to use the credentials in the same `codeExecution` block. Do not call it to test whether a connection exists, to "check" status, or speculatively before you actually need to hit the API -- that decision is `searchIntegrations`'s job. The credentials stay inside the sandbox and never enter the model context.
+`listConnections` is a credential-fetch call, not a status check. Call it **only** inside a `"use impure"` function when RESOLVE reported the connection as `added` **and** you are about to use the credentials in the same `codeExecution` block. Do not call it to test whether a connection exists, to "check" status, or speculatively before you actually need to hit the API -- that decision belongs to RESOLVE. The credentials stay inside the sandbox and never enter the model context.
 
 `listConnections` is injected **only** into the `"use impure"` sandbox, never the durable (top-level) scope. If you call it at the top level you get `ReferenceError: listConnections is not defined`. That means you called it **outside** `"use impure"` -- it does **not** mean the API is missing, and it is **never** a reason to `import("@replit/connectors-sdk")` or hunt for tokens/env vars. Wrap the call in a `"use impure"` function (as below) and retry.
+
+`listConnections`, `getClient`, and `proxyFetch` are the **only** integration calls that go inside `"use impure"`. `searchIntegrations`, `viewIntegration`, and `addIntegration` are durable callbacks: calling one inside the impure function fails the whole block with `"use impure" functions cannot call durable callbacks directly`. Resolve the id in the durable scope first, then pass the connector slug into the impure function as an argument -- an impure function cannot read a variable declared outside it either.
 
 Fetch the credentials and use them in the same block -- never as a standalone "is it connected?" probe:
 
@@ -166,12 +186,13 @@ console.log(result);
 
 `listConnections(connectorName)` is keyed on the **exact connector slug** (e.g. `google-sheet`, `linear`, `stripe`), filtered server-side. The slug is lowercase and often hyphenated, and it is **not** the `displayName` from `searchIntegrations` (`Google Sheets`) nor a reliable lowercasing of it. Passing the wrong slug returns `[]` -- the same shape as "no connection" -- so resolve the slug before concluding anything from an empty result:
 
-- `viewIntegration` is the source of truth for the slug. Call `viewIntegration({ integrationId })` with the `id` from `searchIntegrations`; its rendered markdown spells out the slug as **Name:** `<slug>` (for a connector) or **Connector:** `<slug>` (for an existing connection). `addIntegration` binds that same connector name. Pass that exact value to `listConnections` -- do not guess it by lowercasing the `displayName`.
+- The `connector` field on the `## Integrations` row is the slug. Use it verbatim.
+- Otherwise `viewIntegration` is the source of truth. Call `viewIntegration({ integrationId })` with the `id` from `searchIntegrations`; its rendered markdown spells out the slug as **Name:** `<slug>` (for a connector) or **Connector:** `<slug>` (for an existing connection). Pass that exact value to `listConnections` -- do not guess it by lowercasing the `displayName`.
 
 If `listConnections` returns `[]`, work through these in order before giving up:
 
 1. **Wrong slug** -- the most common cause. Confirm the slug against `viewIntegration`/`addIntegration` output and retry with the correct value.
-2. **Withheld credentials** -- only after the slug is confirmed correct and `searchIntegrations` reported the integration as `added`. A persistent empty result then means the credentials are being withheld for this context (e.g. a credential-blocked account) rather than missing. Surface that to the user instead of looping back into a connect proposal.
+2. **Withheld credentials** -- only after the slug is confirmed correct and RESOLVE reported the integration as `added`. A persistent empty result then means the credentials are being withheld for this context (e.g. a credential-blocked account) rather than missing. Surface that to the user instead of looping back into a connect proposal.
 
 ### Browse the Documentation
 
@@ -488,9 +509,10 @@ console.log(`Deleted message ID abc123`);
 
 ## Key Points
 
-- **Decide setup via `searchIntegrations` `status`** (`added` / `not_added` / `not_setup`), not `listConnections().length`
+- **Decide setup via the `## Integrations` view's `status`** (`added` / `authorized` / `connectable`), falling back to `searchIntegrations`, not `listConnections().length`
+- **Take the connector slug from the row's `connector` field**, not from the display name
 - **Call `listConnections(connectorName)` only inside `"use impure"` when you need the credentials** -- it is a credential fetch for the EXECUTE step, never a status check or probe
-- **Search -- propose -- add** when status is `not_setup` or `not_added` (see `integrations` skill)
+- **Use the `integrations` skill** whenever status is not `added`
 - **All code runs in the `codeExecution` sandbox** -- no script files needed
 - **Use `console.log()`** to see output -- functions execute silently without it (but never log credentials)
 - **Prefer `conn.getClient()` when `conn.hasClient`** over importing an SDK — it returns an initialized client with no `await import` and no raw token handling. Otherwise use `conn.proxyFetch()`.
@@ -501,3 +523,4 @@ console.log(`Deleted message ID abc123`);
 - **Fetch options first** when the user references something by name (users, projects, etc.)
 - **Don't cache clients** -- access tokens expire; re-create clients from `listConnections` when needed
 - **Write large outputs to `.agents/outputs/`** as CSV or JSON
+

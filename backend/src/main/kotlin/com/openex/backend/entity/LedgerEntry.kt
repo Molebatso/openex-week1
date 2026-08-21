@@ -20,7 +20,8 @@ enum class EntryType { DEBIT, CREDIT }
 data class LedgerEntry(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    @Column(nullable = false, updatable = false)
+    val id: UUID? = null,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "trade_id", nullable = false)

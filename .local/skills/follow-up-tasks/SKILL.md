@@ -38,7 +38,7 @@ Before submitting, review each title by asking: "Would a non-technical user unde
 - "Store recipes in a database with full CRUD support" -> "Let users add, edit, and delete their own recipes"
 - "Add server-side validation for recipe API endpoints" -> "Prevent broken recipes from being saved"
 
-Before marking your task as complete, propose up to 3 follow-up tasks by calling `proposeFollowUpTasks` -- NOT `bulkCreateProjectTasks` or `createProjectTask`. The `proposeFollowUpTasks` callback automatically links follow-ups to your current task as the parent -- required for correct task hierarchy. Submit them all in a single call with clear titles, descriptions, and a `category` (required). Keep only the highest-impact follow-ups. Each description should include relevant file paths and enough context for another agent to pick up the work independently.
+Before marking your task as complete, propose up to 3 follow-up tasks by calling `proposeFollowUpTasks` -- NOT `bulkCreateProjectTasks` or `createProjectTask`. The `proposeFollowUpTasks` callback automatically links follow-ups to your current task as the parent -- required for correct task hierarchy. Submit them all in a single call with clear titles, descriptions, and a `category` (required). Keep only the highest-impact follow-ups. Each description should include relevant file paths and enough context for another agent to pick up the work independently. Optionally set `recommendedModelProfile` per task: `economy` for routine, well-scoped work; `power` for complex or ambiguous work. The accept card opens on it, and the user can change it before starting. Usually, you want to leave `recommendedModelProfile` empty.
 
 Only propose follow-ups that represent genuine, actionable work.
 
@@ -77,8 +77,8 @@ Users currently can't keep track of recipes they like. A favorites collection is
 - Favorites persist across sessions
 
 ## Relevant files
-- \`src/pages/recipes/[id].tsx\`
-- \`src/components/RecipeCard.tsx\``
+- src/pages/recipes/[id].tsx
+- src/components/RecipeCard.tsx`
         },
         {
             title: "Save recipes permanently so they aren't lost on refresh",
@@ -93,11 +93,11 @@ Recipe data is hardcoded in a static file. Users who add or edit recipes will lo
 - Users can add, edit, and delete recipes without losing data
 
 ## Relevant files
-- \`src/data/recipes.ts\``
+- src/data/recipes.ts`
         }
     ]
 });
-console.log(followUps.map(t => ({ taskRef: t.taskRef, title: t.title })));
+for (const t of followUps) console.log(t.taskRef, t.title);
 
 // Assigned-task sessions can remove an obsolete follow-up
 await markFollowUpTaskObsolete({ taskRef: "#12" });

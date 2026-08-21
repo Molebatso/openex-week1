@@ -11,7 +11,8 @@ import java.util.UUID
 data class Trade(
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    val id: UUID = UUID.randomUUID(),
+    @Column(nullable = false, updatable = false)
+    val id: UUID? = null,
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "buy_order_id", nullable = false)

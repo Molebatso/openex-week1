@@ -204,3 +204,7 @@ If the application connects to external services, be mindful of side effects. Cl
 If the application uses Replit's OIDC auth — typically indicated by `javascript_log_in_with_replit` or `python_log_in_with_replit` in `.replit`, the presence of `replitAuth.ts` / `replit_auth.py`, `@workspace/replit-auth-web`, references to `replit.com/oidc`, or any other use of Replit's OIDC service — you *must* read `replit-auth.md` (in the same directory as this file) for how to handle programmatic login in test plans. Failing to do so when Replit Auth is part of the test flow will cause auth-related test failures and user frustration.
 
 
+
+## Clerk Auth
+
+If the application uses Clerk authentication (`@clerk/react`, `@clerk/clerk-react`, `@clerk/express`, or `CLERK_SECRET_KEY` env var), see `clerk-auth.md` for how to handle programmatic login in test plans.

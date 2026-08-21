@@ -2,7 +2,10 @@ import { Type, type Static } from '@sinclair/typebox';
 import { Value } from '@sinclair/typebox/value';
 
 import {
+  BulletSchema,
   parseSlideDocument,
+  RunStyleSchema,
+  SDM_MAX_NUMBER_START_AT,
   SlideDocumentSchema,
   type SdmIssue,
 } from './schema';
@@ -21,7 +24,7 @@ export const SDM_CONTEXT_MENU_PROTOCOL_VERSION = 2;
 
 export type SdmSaveState = 'saving' | 'saved' | 'error';
 
-export type SdmKnownCapability = 'edit';
+export type SdmKnownCapability = 'edit' | 'textCaret';
 
 const strict = { additionalProperties: false } as const;
 
@@ -32,6 +35,108 @@ const envelope = {
 };
 
 const selectedIds = Type.Array(Type.String({ minLength: 1 }));
+
+const textAlign = Type.Union([
+  Type.Literal('left'),
+  Type.Literal('center'),
+  Type.Literal('right'),
+  Type.Literal('justify'),
+]);
+
+/**
+ * Bullet replacement carried by a `setBullet` text command. Number updates
+ * may set an explicit restart (`startAt: null` clears it); omitted fields
+ * preserve what the paragraphs already have.
+ */
+export const SdmTextBulletUpdateSchema = Type.Union([
+  Type.Object(
+    {
+      kind: Type.Literal('character'),
+      character: Type.String({
+        minLength: 1,
+        maxLength: 8,
+        pattern: '^[^\\n\\r]+$',
+      }),
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('number'),
+      style: Type.Optional(Type.String({ minLength: 1 })),
+      startAt: Type.Optional(
+        Type.Union([
+          Type.Integer({ minimum: 1, maximum: SDM_MAX_NUMBER_START_AT }),
+          Type.Null(),
+        ]),
+      ),
+    },
+    strict,
+  ),
+]);
+
+/**
+ * Formatting command the workspace routes to the runtime's live text caret.
+ * The runtime applies it to the active ProseMirror view and answers with an
+ * updated `sdm:textSelection`.
+ */
+export const SdmTextCommandSchema = Type.Union([
+  Type.Object(
+    { kind: Type.Literal('setRunStyle'), style: RunStyleSchema },
+    strict,
+  ),
+  Type.Object({ kind: Type.Literal('setAlignment'), align: textAlign }, strict),
+  Type.Object(
+    {
+      kind: Type.Literal('setParagraphSpacing'),
+      lineHeight: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+      spaceAfterPt: Type.Optional(Type.Number({ minimum: 0 })),
+      spaceBeforePt: Type.Optional(Type.Number({ minimum: 0 })),
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      kind: Type.Literal('toggleBullets'),
+      bulletKind: Type.Union([
+        Type.Literal('character'),
+        Type.Literal('number'),
+      ]),
+    },
+    strict,
+  ),
+  Type.Object(
+    { kind: Type.Literal('setBullet'), bullet: SdmTextBulletUpdateSchema },
+    strict,
+  ),
+  Type.Object({ kind: Type.Literal('indent') }, strict),
+  Type.Object({ kind: Type.Literal('outdent') }, strict),
+  Type.Object({ kind: Type.Literal('undo') }, strict),
+  Type.Object({ kind: Type.Literal('redo') }, strict),
+]);
+
+export type SdmTextCommand = Static<typeof SdmTextCommandSchema>;
+
+/**
+ * Effective formatting at the runtime caret's selection head, mirrored to
+ * the workspace so formatting controls reflect the live selection.
+ */
+export const SdmTextSelectionFormattingSchema = Type.Object(
+  {
+    align: textAlign,
+    bullet: Type.Union([BulletSchema, Type.Null()]),
+    level: Type.Integer({ minimum: 0, maximum: 8 }),
+    lineHeight: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+    runStyle: RunStyleSchema,
+    spaceAfterPt: Type.Optional(Type.Number({ minimum: 0 })),
+    spaceBeforePt: Type.Optional(Type.Number({ minimum: 0 })),
+  },
+  strict,
+);
+
+export type SdmTextSelectionFormatting = Static<
+  typeof SdmTextSelectionFormattingSchema
+>;
 
 export const WorkspaceToRuntimeMessageSchema = Type.Union([
   Type.Object(
@@ -68,6 +173,22 @@ export const WorkspaceToRuntimeMessageSchema = Type.Union([
     },
     strict,
   ),
+  Type.Object(
+    {
+      ...envelope,
+      type: Type.Literal('sdm:textCommand'),
+      elementId: Type.String({ minLength: 1 }),
+      command: SdmTextCommandSchema,
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      ...envelope,
+      type: Type.Literal('sdm:historyReady'),
+    },
+    strict,
+  ),
 ]);
 
 export const RuntimeToWorkspaceMessageSchema = Type.Union([
@@ -90,14 +211,6 @@ export const RuntimeToWorkspaceMessageSchema = Type.Union([
       type: Type.Literal('sdm:doc'),
       document: SlideDocumentSchema,
       selectedIds,
-    },
-    strict,
-  ),
-  Type.Object(
-    {
-      ...envelope,
-      type: Type.Literal('sdm:editModeChanged'),
-      editing: Type.Boolean(),
     },
     strict,
   ),
@@ -131,6 +244,16 @@ export const RuntimeToWorkspaceMessageSchema = Type.Union([
   Type.Object(
     {
       ...envelope,
+      type: Type.Literal('sdm:textSelection'),
+      elementId: Type.String({ minLength: 1 }),
+      active: Type.Boolean(),
+      formatting: Type.Optional(SdmTextSelectionFormattingSchema),
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      ...envelope,
       type: Type.Literal('sdm:saveStatus'),
       state: Type.Union([
         Type.Literal('saving'),
@@ -138,6 +261,20 @@ export const RuntimeToWorkspaceMessageSchema = Type.Union([
         Type.Literal('error'),
       ]),
       message: Type.Optional(Type.String()),
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      ...envelope,
+      type: Type.Literal('sdm:keydown'),
+      key: Type.String(),
+      code: Type.String(),
+      repeat: Type.Boolean(),
+      altKey: Type.Boolean(),
+      ctrlKey: Type.Boolean(),
+      metaKey: Type.Boolean(),
+      shiftKey: Type.Boolean(),
     },
     strict,
   ),

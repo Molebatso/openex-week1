@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.openex.backend.service.WalletServiceTest" tests="6" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:16:11" hostname="DESKTOP-U2OQGJ4" time="0.078">
+  <properties/>
+  <testcase name="createDefaultWallets creates one wallet per default currency()" classname="com.openex.backend.service.WalletServiceTest" time="0.016"/>
+  <testcase name="credit increases balance correctly()" classname="com.openex.backend.service.WalletServiceTest" time="0.037"/>
+  <testcase name="debit decreases balance correctly()" classname="com.openex.backend.service.WalletServiceTest" time="0.005"/>
+  <testcase name="debit throws InsufficientFundsException when balance is too low()" classname="com.openex.backend.service.WalletServiceTest" time="0.005"/>
+  <testcase name="debit throws ResourceNotFoundException when wallet does not exist()" classname="com.openex.backend.service.WalletServiceTest" time="0.004"/>
+  <testcase name="credit rejects zero or negative amounts()" classname="com.openex.backend.service.WalletServiceTest" time="0.006"/>
+  <system-out><![CDATA[13:16:11.600 [Test worker] INFO com.openex.backend.service.WalletService -- Provisioned 3 wallets for user alice
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

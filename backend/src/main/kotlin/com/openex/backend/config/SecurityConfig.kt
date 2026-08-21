@@ -16,6 +16,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.CorsConfigurationSource
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource
 
 @Configuration
 @EnableWebSecurity
@@ -39,35 +42,50 @@ class SecurityConfig(
         config.authenticationManager
 
     @Bean
-fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
-    http
-        .csrf { it.disable() }
-        .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
-        .authorizeHttpRequests { auth ->
-            auth
-                // Authentication
-                .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-
-                // Swagger
-                .requestMatchers(
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**"
-                ).permitAll()
-
-                // Actuator
-                .requestMatchers("/actuator/health").permitAll()
-
-                // Everything else requires JWT
-                .anyRequest().authenticated()
+    fun corsConfigurationSource(): CorsConfigurationSource {
+        val config = CorsConfiguration().apply {
+            // Allow the Vite dev server and Docker-compose frontend
+            allowedOriginPatterns = listOf("*")
+            allowedMethods = listOf("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+            allowedHeaders = listOf("*")
+            allowCredentials = true
         }
-        .authenticationProvider(authenticationProvider())
-        .addFilterBefore(
-            jwtAuthenticationFilter,
-            UsernamePasswordAuthenticationFilter::class.java
-        )
+        return UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration("/**", config)
+        }
+    }
 
-    return http.build()
-}
+    @Bean
+    fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
+        http
+            .cors { it.configurationSource(corsConfigurationSource()) }
+            .csrf { it.disable() }
+            .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
+            .authorizeHttpRequests { auth ->
+                auth
+                    // Auth endpoints
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                    .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                    // Health check
+                    .requestMatchers("/actuator/health").permitAll()
+                    // Swagger / OpenAPI
+                    .requestMatchers(
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/v3/api-docs.yaml",
+                    ).permitAll()
+                    // WebSocket handshake (Spring Security handles WS upgrade separately)
+                    .requestMatchers("/ws/**").permitAll()
+                     // Public market snapshots used to bootstrap the terminal before
+                     // the authenticated trading actions are available.
+                     .requestMatchers(HttpMethod.GET, "/api/orderbook", "/api/market/**").permitAll()
+                    // All other requests require JWT
+                    .anyRequest().authenticated()
+            }
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
+
+        return http.build()
+    }
 }

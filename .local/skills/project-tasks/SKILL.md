@@ -45,7 +45,7 @@ Get a project task by task ref.
 |-----------|------|----------|-------------|
 | `taskRef` | str | Yes | Task ref to retrieve |
 
-**Returns:** `{ task }` — a dict with `taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `createdAt`, `updatedAt`
+**Returns:** `{ task }` — a dict with `taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `recommendedModelProfile`, `createdAt`, `updatedAt`
 
 **Example:**
 
@@ -75,7 +75,7 @@ await surfaceProjectTasks({
 });
 ```
 
-### updateProjectTask(taskRef, title=None, description=None, filePath=None, dependsOn=None, artifactKinds=None)
+### updateProjectTask(taskRef, title=None, description=None, filePath=None, dependsOn=None, artifactKinds=None, recommendedModelProfile=None)
 
 Update an existing project task's content. Only provided fields are updated. Editing a plan file alone does NOT update the task -- you must call `updateProjectTask` to persist changes.
 
@@ -89,8 +89,9 @@ Update an existing project task's content. Only provided fields are updated. Edi
 | `filePath` | str | No | Path to a plan file under `.local/tasks/`. If you've created/edited a plan file, pass its path here and its content becomes the new description. Mutually exclusive with `description`. |
 | `dependsOn` | array of str | No | Full list of dependency task refs (replaces existing) |
 | `artifactKinds` | array | No | Updated artifact kind tags. Pass `[]` to clear stale tags when the task is no longer artifact-producing. |
+| `recommendedModelProfile` | str | No | Updated model-profile recommendation: `economy` or `power`. Omit to leave unchanged — e.g. set `power` when a plan revision makes the task substantially harder. |
 
-**Returns:** `{ task }` — the task dict (`taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `createdAt`, `updatedAt`)
+**Returns:** `{ task }` — the task dict (`taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `recommendedModelProfile`, `createdAt`, `updatedAt`)
 
 **Examples:**
 
@@ -119,7 +120,7 @@ Resume work on an IMPLEMENTED task. Call this before making further changes to a
 |-----------|------|----------|-------------|
 | `taskRef` | str | Yes | Task ref to resume |
 
-**Returns:** `{ task }` — the task dict (`taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `createdAt`, `updatedAt`)
+**Returns:** `{ task }` — the task dict (`taskRef`, `title`, `description`, `state`, `displayState`, `dependsOn`, `artifactKinds`, `recommendedModelProfile`, `createdAt`, `updatedAt`)
 
 **Example:**
 
@@ -242,8 +243,9 @@ Each task object:
 | `filePath` | str | Yes | Path to the plan file (e.g. `.local/tasks/payment-integration.md`). The file content becomes the task description. |
 | `dependsOn` | array | No | List of `alias` values from other tasks in this batch, or task refs (`"#1"`, `"#2"`) of already-accepted tasks. Never depend on PROPOSED -- only PENDING or later. Tasks within the same batch may depend on each other freely. |
 | `artifactKinds` | array | No | Artifact kinds for tasks creating new artifacts. Values: `web`, `mobile`, `video`, `slides`, `automation`, `data-app`, `design`. Omit for code-only or non-artifact work. |
+| `recommendedModelProfile` | str | No | Model profile recommended for running the task: `economy` for routine, well-scoped work; `power` for complex or ambiguous work. The accept card opens on it, and the user can change it before starting. Usually, you want to leave `recommendedModelProfile` empty. |
 
-**Returns:** Dict with a `proposed` list of created task dicts, each with `taskRef`, `title`, `state`, `displayState`, `dependsOn`, `createdAt`, `updatedAt`
+**Returns:** Dict with a `proposed` list of created task dicts, each with `taskRef`, `title`, `state`, `displayState`, `dependsOn`, `recommendedModelProfile`, `createdAt`, `updatedAt`
 
 **Examples:**
 

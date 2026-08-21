@@ -522,7 +522,7 @@ For complex sections dispatched to subagents, write specs at `docs/research/comp
 11. Download ALL images/videos/SVGs to public/images/ (batch with retry)
 12. Extract footer links -- clone-data/footer.json
 
-13. createArtifact("react-vite", ...)
+13. createArtifact({ artifactType: "react-vite", slug, previewPath, title, description })
 14. Replace index.css (plain CSS reset + design tokens -- NO Tailwind/shadcn)
 
 15. Replace App.tsx (remove router/query boilerplate -- single page)

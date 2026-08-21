@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { slides } from '@/slideLoader';
 import type { Action } from '@/.sdm/core/schema';
+import { isSdmEditingActive } from '@/.sdm/editingState';
 import { useLocation } from 'wouter';
 
 function getSlideIndex(pathname: string): number {
@@ -61,6 +62,7 @@ function SlideEditor() {
     };
 
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (isSdmEditingActive()) return;
       if (navigationDisabledRef.current) {
         if (event.defaultPrevented) return;
         if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -125,6 +127,7 @@ function SlideEditor() {
     const touchHandledRef = touchHandledRefStable;
 
     const onClick = (event: MouseEvent) => {
+      if (isSdmEditingActive()) return;
       if (touchHandledRef.current) {
         touchHandledRef.current = false;
         return;
@@ -154,6 +157,7 @@ function SlideEditor() {
     };
 
     const onTouchEnd = (event: TouchEvent) => {
+      if (isSdmEditingActive()) return;
       const dx = event.changedTouches[0].clientX - touchStartX;
       const dy = event.changedTouches[0].clientY - touchStartY;
       if (Math.abs(dx) >= 10 || Math.abs(dy) >= 10) return;
@@ -320,6 +324,7 @@ export default function App() {
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
+      if (isSdmEditingActive()) return;
       if (event.source !== window || event.data?.type !== 'sdm:action') {
         return;
       }

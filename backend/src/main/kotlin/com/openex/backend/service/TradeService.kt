@@ -24,10 +24,10 @@ class TradeService(
 
         return tradeRepository.findAllByUserId(userId).map { trade ->
             TradeResponse(
-                id = trade.id,
+                id = trade.id!!,
                 symbol = trade.symbol,
-                buyOrderId = trade.buyOrder.id,
-                sellOrderId = trade.sellOrder.id,
+                buyOrderId = trade.buyOrder.id!!,
+                sellOrderId = trade.sellOrder.id!!,
                 price = trade.price,
                 quantity = trade.quantity,
                 total = trade.price.multiply(trade.quantity),

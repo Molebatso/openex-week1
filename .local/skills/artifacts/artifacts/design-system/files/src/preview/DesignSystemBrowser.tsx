@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
@@ -206,7 +206,18 @@ export function DesignSystemBrowser() {
           </header>
 
           <div className="pt-8">
-            <ActivePage />
+            <Suspense
+              fallback={
+                <div
+                  role="status"
+                  className="rounded-xl border bg-card p-6 text-sm text-muted-foreground"
+                >
+                  Loading preview…
+                </div>
+              }
+            >
+              <ActivePage />
+            </Suspense>
           </div>
         </div>
       </main>

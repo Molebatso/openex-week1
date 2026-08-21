@@ -39,12 +39,16 @@ class WalletService(
 
     /**
      * Credit a wallet (add funds).
-     * Called by LedgerService only — never call directly.
+     * Used by the simulated deposit endpoint and LedgerService.
      */
     @Transactional
     fun credit(user: User, currency: String, amount: BigDecimal): Wallet {
         require(amount > BigDecimal.ZERO) { "Credit amount must be positive" }
-        val wallet = getOrCreateWallet(user, currency)
+        val normalizedCurrency = normalizeCurrency(currency)
+        require(normalizedCurrency in DEFAULT_CURRENCIES) {
+            "Unsupported currency: $currency"
+        }
+        val wallet = getOrCreateWallet(user, normalizedCurrency)
         wallet.balance = wallet.balance.add(amount)
         return walletRepository.save(wallet).also {
             log.debug("Credited {} {} to user {}", amount, currency, user.username)
@@ -81,8 +85,10 @@ class WalletService(
     }
 
     private fun Wallet.toResponse() = WalletResponse(
-        id = requireNotNull(id),
+        id = id!!,
         currency = currency,
         balance = balance,
     )
+
+    private fun normalizeCurrency(currency: String): String = currency.trim().uppercase()
 }

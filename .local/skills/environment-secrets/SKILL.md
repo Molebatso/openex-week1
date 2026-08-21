@@ -7,9 +7,13 @@ description: Manage environment variables and secrets. View, set, delete env var
 
 Use this skill to inspect and manage project environment variables and to request sensitive values from the user.
 
+
+
 ## Available Functions
 
+
 All functions are available in the JavaScript code execution environment. Call callbacks with a single JSON object argument.
+
 
 ### viewEnvVars({ type, environment, keys })
 

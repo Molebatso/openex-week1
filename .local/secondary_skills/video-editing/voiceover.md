@@ -25,27 +25,13 @@ ElevenLabs is available as a Replit connector. Set it up through the integration
 
 // In the code execution sandbox:
 
-const results = await searchIntegrations({ query: "elevenlabs" });
+const results = await searchIntegrations({ mode: "search", queries: ["elevenlabs"] });
 
 console.log(results);
 
-// Propose the connector to the user (they'll complete OAuth)
-
-ProposeIntegration({ proposal: [{ integrationId: "connector:ccfg_elevenlabs_..." }] });
-
 ```
 
-After the user authorizes, on the next loop:
-
-```javascript
-
-// Add the connection to the project
-
-const addResult = await addIntegration({ integrationId: "connection:conn_elevenlabs_..." });
-
-console.log(addResult);
-
-```
+Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`. An accepted proposal is already attached, so do not call `addIntegration` afterward.
 
 ### 2. Access Credentials
 
@@ -792,3 +778,4 @@ return outputPath;
 
 - **Cost awareness:** ElevenLabs charges per character. Long narrations can add up. Let the user know the approximate character count before generating.
 - **Multilingual:** The `eleven_multilingual_v2` model supports 29 languages. The text language is auto-detected. No special configuration needed — just write the text in the target language.
+

@@ -7,6 +7,8 @@ description: Create reusable skills that extend agent capabilities. Use when the
 
 Create skills to save reusable knowledge, procedures, and workflows that persist across sessions. Skills are instructions for future versions of yourself—write them as if teaching a fresh instance how to handle a task.
 
+
+
 ## When to Use
 
 - User asks to "create a skill" or "teach you how to do X"

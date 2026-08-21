@@ -1,5 +1,5 @@
 name: design-system
-description: "Design system: tokens (DTCG), a shadcn component library themed from them, and a living style guide preview"
+description: "Design system: tokens (DTCG), an initial shadcn component scaffold, and a living style guide preview"
 # A design system is a reusable token + component library with a style-guide
 # preview. It is consumed by other artifacts rather than deployed on its own,
 # so the design-system kind is non-publishable: the service config defines a

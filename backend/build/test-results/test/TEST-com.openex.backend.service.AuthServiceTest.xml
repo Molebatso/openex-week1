@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.openex.backend.service.AuthServiceTest" tests="4" skipped="0" failures="0" errors="0" timestamp="2026-08-20T11:16:10" hostname="DESKTOP-U2OQGJ4" time="0.643">
+  <properties/>
+  <testcase name="register throws DuplicateResourceException when username is taken()" classname="com.openex.backend.service.AuthServiceTest" time="0.529"/>
+  <testcase name="register throws DuplicateResourceException when email is taken()" classname="com.openex.backend.service.AuthServiceTest" time="0.004"/>
+  <testcase name="login returns JWT for valid credentials()" classname="com.openex.backend.service.AuthServiceTest" time="0.084"/>
+  <testcase name="register creates a new user and returns JWT()" classname="com.openex.backend.service.AuthServiceTest" time="0.023"/>
+  <system-out><![CDATA[13:16:11.466 [Test worker] INFO com.openex.backend.service.AuthService -- User logged in: bob
+13:16:11.482 [Test worker] INFO com.openex.backend.service.AuthService -- Registered new user: alice (d00dd6fb-4587-4073-b514-287d90e4970b)
+13:16:11.484 [Test worker] INFO com.openex.backend.service.AuthService -- User logged in: alice
+]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

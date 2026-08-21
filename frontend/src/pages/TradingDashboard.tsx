@@ -8,6 +8,7 @@ import { TradeHistory } from '../components/TradeHistory';
 import { OpenOrders } from '../components/OpenOrders';
 import { WalletPanel } from '../components/WalletPanel';
 import { AiAssistant } from '../components/AiAssistant';
+import { TradingChart } from '../components/TradingChart';
 import type { WsTradeEvent, WsOrderBookEvent, WsMarketUpdateEvent } from '../types';
 
 const SYMBOLS = ['BTC/USD', 'ETH/USD'];
@@ -125,9 +126,9 @@ export function TradingDashboard() {
             </div>
           </div>
 
-          {/* Right: order entry + open orders */}
+          {/* Right: live chart, order entry + open orders */}
           <div className="col-span-8 flex flex-col gap-3">
-            {/* Order entry + open orders on same row */}
+            <TradingChart symbol={symbol} wsEvent={latestTrade} />
             <div className="grid grid-cols-5 gap-3">
               <div className="col-span-2">
                 <OrderEntry symbol={symbol} onOrderPlaced={handleOrderPlaced} />

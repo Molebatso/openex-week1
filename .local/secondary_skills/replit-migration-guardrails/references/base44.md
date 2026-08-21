@@ -23,7 +23,7 @@ Flat `src/` at repo root → move under `client/src/`, add `server/` +
 | `base44.auth.*` | `javascript_log_in_with_replit` blueprint |
 | `InvokeLLM` / `GenerateImage` / `ExtractDataFromUploadedFile` | AI Integrations (OpenAI) |
 | `UploadFile` | `javascript_object_storage` blueprint |
-| `SendEmail` / `SendSMS` | `integrations` skill, else stub |
+| `SendEmail` / `SendSMS` | `integrations` skill (or the `## Integrations` guidance in your instructions), else stub |
 | `base44.appLogs.*` | delete |
 
 ## Cleanup

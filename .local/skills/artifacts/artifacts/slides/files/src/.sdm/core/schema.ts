@@ -6,6 +6,7 @@ export const SDM_VERSION = 1;
 export const SDM_SLIDE_WIDTH = 1920;
 export const SDM_SLIDE_HEIGHT = 1080;
 export const SDM_POINT_TO_UNIT = 2;
+export const SDM_DEFAULT_TEXT_SIZE_PT = 18;
 
 const strict = { additionalProperties: false } as const;
 const finiteNumber = Type.Number();
@@ -218,26 +219,87 @@ export const ActionSchema = Type.Union([
   ),
 ]);
 
+const runStyleProperties = {
+  font: Type.Optional(FontSchema),
+  sizePt: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
+  weight: Type.Optional(Type.Integer({ minimum: 100, maximum: 900 })),
+  italic: Type.Optional(Type.Boolean()),
+  underline: Type.Optional(Type.Boolean()),
+  strike: Type.Optional(Type.Boolean()),
+  color: Type.Optional(ColorSchema),
+  highlight: Type.Optional(ColorSchema),
+  letterSpacingPt: Type.Optional(finiteNumber),
+};
+
+export const RunStyleSchema = Type.Object(runStyleProperties, strict);
+
 export const TextRunSchema = Type.Object(
   {
     text: Type.String(),
-    font: Type.Optional(FontSchema),
-    sizePt: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
-    weight: Type.Optional(Type.Integer({ minimum: 100, maximum: 900 })),
-    italic: Type.Optional(Type.Boolean()),
-    underline: Type.Optional(Type.Boolean()),
-    strike: Type.Optional(Type.Boolean()),
-    color: Type.Optional(ColorSchema),
-    highlight: Type.Optional(ColorSchema),
-    letterSpacingPt: Type.Optional(finiteNumber),
+    ...runStyleProperties,
     action: Type.Optional(ActionSchema),
   },
   strict,
 );
 
+export const SDM_MAX_NUMBER_START_AT = 32767;
+
+export const BulletSchema = Type.Union(
+  [
+    Type.Object(
+      {
+        kind: Type.Literal('character'),
+        character: Type.String({
+          minLength: 1,
+          maxLength: 8,
+          pattern: '^[^\\n\\r]+$',
+        }),
+      },
+      strict,
+    ),
+    Type.Object(
+      {
+        kind: Type.Literal('number'),
+        style: Type.Optional(
+          Type.String({
+            minLength: 1,
+            description:
+              'Numeral family (arabic, alphaUc, alphaLc, romanUc, romanLc) ' +
+              'plus suffix (Period, ParenR, ParenBoth, Plain). Unrecognized ' +
+              'families render arabic with the matching suffix.',
+            examples: [
+              'arabicPeriod',
+              'arabicParenR',
+              'arabicParenBoth',
+              'arabicPlain',
+              'alphaUcPeriod',
+              'alphaLcPeriod',
+              'alphaUcParenR',
+              'alphaLcParenR',
+              'romanUcPeriod',
+              'romanLcPeriod',
+              'romanUcParenR',
+              'romanLcParenR',
+            ],
+          }),
+        ),
+        startAt: Type.Optional(
+          Type.Integer({ minimum: 1, maximum: SDM_MAX_NUMBER_START_AT }),
+        ),
+      },
+      strict,
+    ),
+  ],
+  {
+    description: 'Paragraph-local bullet formatting.',
+  },
+);
+
 export const ParagraphSchema = Type.Object(
   {
     runs: Type.Array(TextRunSchema),
+    defaultRunStyle: Type.Optional(RunStyleSchema),
+    markerStyle: Type.Optional(RunStyleSchema),
     align: Type.Optional(
       Type.Union([
         Type.Literal('left'),
@@ -247,26 +309,12 @@ export const ParagraphSchema = Type.Object(
       ]),
     ),
     level: Type.Optional(Type.Integer({ minimum: 0, maximum: 8 })),
-    bullet: Type.Optional(
-      Type.Union([
-        Type.Object({ kind: Type.Literal('none') }, strict),
-        Type.Object(
-          { kind: Type.Literal('character'), character: Type.String() },
-          strict,
-        ),
-        Type.Object(
-          {
-            kind: Type.Literal('number'),
-            style: Type.Optional(Type.String()),
-            startAt: Type.Optional(Type.Integer({ minimum: 1 })),
-          },
-          strict,
-        ),
-      ]),
-    ),
+    bullet: Type.Optional(BulletSchema),
     lineHeight: Type.Optional(Type.Number({ exclusiveMinimum: 0 })),
     spaceBeforePt: Type.Optional(Type.Number({ minimum: 0 })),
     spaceAfterPt: Type.Optional(Type.Number({ minimum: 0 })),
+    indentPt: Type.Optional(Type.Number({ minimum: 0 })),
+    hangingIndentPt: Type.Optional(Type.Number({ minimum: 0 })),
   },
   strict,
 );
@@ -279,13 +327,6 @@ export const TextBodySchema = Type.Object(
         Type.Literal('top'),
         Type.Literal('middle'),
         Type.Literal('bottom'),
-      ]),
-    ),
-    autofit: Type.Optional(
-      Type.Union([
-        Type.Literal('none'),
-        Type.Literal('shrink'),
-        Type.Literal('resize'),
       ]),
     ),
     overflow: Type.Optional(
@@ -502,7 +543,9 @@ export type Font = Static<typeof FontSchema>;
 export type Paint = Static<typeof PaintSchema>;
 export type Stroke = Static<typeof StrokeSchema>;
 export type Action = Static<typeof ActionSchema>;
+export type RunStyle = Static<typeof RunStyleSchema>;
 export type TextRun = Static<typeof TextRunSchema>;
+export type Bullet = Static<typeof BulletSchema>;
 export type Paragraph = Static<typeof ParagraphSchema>;
 export type TextBody = Static<typeof TextBodySchema>;
 export type Geometry = Static<typeof GeometrySchema>;
@@ -520,6 +563,152 @@ export type ParseSlideDocumentResult =
   | { ok: true; document: SlideDocument }
   | { ok: false; reason: 'invalid'; issues: Array<SdmIssue> }
   | { ok: false; reason: 'unsupportedVersion'; version: number };
+
+type SchemaValueError =
+  ReturnType<typeof Value.Errors> extends Iterable<infer Error> ? Error : never;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function unionBranches(schema: unknown): Array<unknown> | undefined {
+  if (!isRecord(schema) || !Array.isArray(schema.anyOf)) {
+    return undefined;
+  }
+
+  return schema.anyOf;
+}
+
+function branchLiteral(branch: unknown, property?: string): unknown {
+  if (!isRecord(branch)) {
+    return undefined;
+  }
+  let schema: unknown = branch;
+  if (property !== undefined) {
+    schema = isRecord(branch.properties)
+      ? branch.properties[property]
+      : undefined;
+  }
+
+  return isRecord(schema) ? schema.const : undefined;
+}
+
+function formatOptions(options: Array<unknown>): string {
+  return options.map((option) => JSON.stringify(option)).join(' | ');
+}
+
+function unionLabel(options: Array<unknown>): string {
+  const values = new Set(options);
+  if (values.has('text') && values.has('shape') && values.has('image')) {
+    return 'element';
+  }
+  if (values.has('token') && values.has('rgb')) {
+    return 'color';
+  }
+  if (values.has('none') && values.has('solid')) {
+    return 'paint';
+  }
+  if (values.has('token') && values.has('family')) {
+    return 'font';
+  }
+  if (values.has('preset') && values.has('path')) {
+    return 'geometry';
+  }
+  if (values.has('openUrl') && values.has('goToSlide')) {
+    return 'action';
+  }
+  if (values.has('character') && values.has('number')) {
+    return 'bullet';
+  }
+
+  return 'value';
+}
+
+function leafIssue(error: SchemaValueError): SdmIssue {
+  const property = error.path.split('/').at(-1);
+  if (error.message === 'Unexpected property' && property) {
+    const hint =
+      property === 'fontSize' ? ' Text size belongs on runs as "sizePt".' : '';
+
+    return {
+      path: error.path || '/',
+      message: `unknown property "${property}".${hint}`,
+    };
+  }
+  if (isRecord(error.schema) && error.schema.pattern === '^#[0-9A-Fa-f]{6}$') {
+    return {
+      path: error.path || '/',
+      message: 'color must be a 6-digit hex like "#1A2B3C"',
+    };
+  }
+
+  return {
+    path: error.path || '/',
+    message: error.message,
+  };
+}
+
+function expandSchemaError(error: SchemaValueError): Array<SdmIssue> {
+  const branches = unionBranches(error.schema);
+  if (!branches || error.errors.length !== branches.length) {
+    return [leafIssue(error)];
+  }
+
+  for (const discriminator of ['type', 'kind']) {
+    const options = branches.map((branch) =>
+      branchLiteral(branch, discriminator),
+    );
+    if (options.some((option) => option === undefined)) {
+      continue;
+    }
+    const label = unionLabel(options);
+    if (!isRecord(error.value)) {
+      return [
+        {
+          path: error.path || '/',
+          message: `${label} must be an object with "${discriminator}" set to ${formatOptions(options)}`,
+        },
+      ];
+    }
+    const selected = error.value[discriminator];
+    if (selected === undefined) {
+      const wrongDiscriminator =
+        discriminator === 'type' && error.value.kind !== undefined
+          ? ' Elements use "type", not "kind".'
+          : '';
+
+      return [
+        {
+          path: `${error.path}/${discriminator}`,
+          message: `missing "${discriminator}" discriminator.${wrongDiscriminator} Expected ${formatOptions(options)}`,
+        },
+      ];
+    }
+    const selectedIndex = options.indexOf(selected);
+    if (selectedIndex === -1) {
+      return [
+        {
+          path: `${error.path}/${discriminator}`,
+          message: `unknown ${label} ${discriminator} ${JSON.stringify(selected)}; expected ${formatOptions(options)}`,
+        },
+      ];
+    }
+
+    return [...error.errors[selectedIndex]].flatMap(expandSchemaError);
+  }
+
+  const options = branches.map((branch) => branchLiteral(branch));
+  if (options.every((option) => option !== undefined)) {
+    return [
+      {
+        path: error.path || '/',
+        message: `expected one of ${formatOptions(options)}`,
+      },
+    ];
+  }
+
+  return [leafIssue(error)];
+}
 
 export function isSlideDocument(input: unknown): input is SlideDocument {
   return Value.Check(SlideDocumentSchema, input);
@@ -617,11 +806,8 @@ export function parseSlideDocument(input: unknown): ParseSlideDocumentResult {
   }
 
   if (!isSlideDocument(input)) {
-    const issues = [...Value.Errors(SlideDocumentSchema, input)].map(
-      (error) => ({
-        path: error.path || '/',
-        message: error.message,
-      }),
+    const issues = [...Value.Errors(SlideDocumentSchema, input)].flatMap(
+      expandSchemaError,
     );
     return { ok: false, reason: 'invalid', issues };
   }

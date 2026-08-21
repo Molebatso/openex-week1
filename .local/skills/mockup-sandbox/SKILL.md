@@ -75,7 +75,8 @@ const result = await createArtifact({
     artifactType: "mockup-sandbox",
     slug: "mockup-sandbox",
     previewPath: "/__mockup/",
-    title: "Mockup Sandbox"
+    title: "Mockup Sandbox",
+    description: "An isolated sandbox for prototyping UI mockups on the canvas. Hosts standalone mockup components in iframes so design variants can be compared side by side without touching the real app."
 });
 ```
 

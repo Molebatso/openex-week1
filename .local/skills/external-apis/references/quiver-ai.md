@@ -1,6 +1,6 @@
-# Quiver AI
+# QuiverAI
 
-Proxy requests to Quiver AI via Replit-managed billing.
+Proxy requests to QuiverAI via Replit-managed billing.
 
 ## Callback
 
@@ -16,10 +16,10 @@ Authorization is handled automatically by Replit. Do not pass an `Authorization`
 
 ## Skill
 
-## Quiver AI quickstart
+## QuiverAI quickstart
 
 Generate SVG icons and illustrations from a text prompt through
-Quiver AI passthrough billing. Send the required fields as an
+QuiverAI passthrough billing. Send the required fields as an
 object in `body` (it is serialized for you — do not
 pre-stringify). Supported models: `arrow-1`, `arrow-1.1`,
 `arrow-1.1-max`.

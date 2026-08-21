@@ -101,7 +101,7 @@ An ICP describes accounts where three things are true: they **can buy** (budget/
 - **GitHub orgs** — public repos reveal tech stack and eng team size for dev-tool ICPs
 - **SEC EDGAR** (public cos) — 10-K "Risk Factors" sections list the exact problems they're worried about
 
-**Paid sources the user likely has (shape output for these):**
+**Paid sources the user likely has (shape output for these — present them as options, never auto-select one or propose connecting it unless the user asks):**
 
 - **Apollo** (~210M contacts, $49+/mo) — best value for SMB/mid-market, filters on headcount growth + job postings + intent
 - **LinkedIn Sales Navigator** (~1B profiles) — most accurate job-change data, but no email export

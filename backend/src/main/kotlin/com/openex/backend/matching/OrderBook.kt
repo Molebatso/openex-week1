@@ -32,17 +32,17 @@ class OrderBook(val symbol: String) {
     /** Add an order to the book without attempting to match it. */
     fun add(order: Order) = lock.withLock {
         val book = if (order.side == OrderSide.BUY) bids else asks
-        book.getOrPut(order.price!!) { LinkedHashMap() }[order.id] = order
+        book.getOrPut(order.price!!) { LinkedHashMap() }[order.id!!] = order
     }
 
     /** Remove an order from the book (e.g. after fill or cancellation). */
     fun remove(order: Order) = lock.withLock {
         val book = if (order.side == OrderSide.BUY) bids else asks
         order.price?.let { price ->
-            book[price]?.remove(order.id)
+            book[price]?.remove(order.id!!)
             if (book[price]?.isEmpty() == true) book.remove(price)
-        }
     }
+}
 
     /**
      * Match an incoming order against resting orders.

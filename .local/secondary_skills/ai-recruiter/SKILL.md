@@ -384,14 +384,14 @@ When the user wants to communicate decisions to candidates (confirmations, rejec
 
 #### Prerequisites
 
-- The Gmail integration must be connected. Use `searchIntegrations({ query: "gmail" })` to check availability.
-- If not connected, guide the user through setup: use `proposeIntegration`with the Gmail connector ID to trigger OAuth. After the user authorizes, use`addIntegration`to wire it to the project, then`proposeIntegration` again to establish the token.
+- The Gmail integration must be connected. Use `searchIntegrations({ mode: "search", queries: ["gmail"] })` to check availability.
+- Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`.
 
 - Use `listConnections('google-mail')` inside `"use impure"` to get credentials once connected.
 
 ##### Email workflow
 
-1. **Draft first, send second.** Always show the user the email content before sending. Use `confirm_connector_operation` to get explicit approval before each send.
+1. **Draft first, send second.** Always show the user the email content before sending, and wait for their explicit go-ahead in chat before each send.
 2. **Personalize every email.** Reference the candidate's name, the specific role, and at least one detail from their CV (e.g., "your experience leading the migration at Acme Corp").
 
 3. **Match tone to decision:**
@@ -434,7 +434,7 @@ const result = await (async function() {
 
   // Use the Gmail API to send emails
 
-  // Always use confirm_connector_operation before sending
+  // Send only after the user's explicit go-ahead in chat
 
   return { ok: true };
 })();
@@ -444,7 +444,7 @@ console.log(result);
 
 ###### Rules
 
-- Never send emails without explicit user approval via `confirm_connector_operation`
+- Never send emails without the user's explicit approval in chat
 - Always show the draft to the user first and let them edit if needed
 
 - Send one email at a time, confirming each with the user (unless they explicitly approve batch sending)
@@ -646,8 +646,8 @@ Use Google Sheets as the central tracking system for the entire hiring pipeline.
 
 #### Prerequisites (2)
 
-- Google Sheets integration must be connected. Use `searchIntegrations({ query: "google sheets" })` to check availability.
-- If not connected, guide the user through setup: use `proposeIntegration`with connector ID`connector:ccfg_google-sheet_E42A9F6CA62546F68A1FECA0E8`.
+- Google Sheets integration must be connected. Use `searchIntegrations({ mode: "search", queries: ["google sheets"] })` to check availability.
+- Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`.
 
 - Use `listConnections('google-sheet')` inside `"use impure"` to get credentials once connected.
 
@@ -779,7 +779,7 @@ const result = await (async function() {
 
   // Use the Google Sheets API to create and update the tracking spreadsheet
 
-  // Always use confirm_connector_operation before write operations
+  // Write only after the user's explicit go-ahead in chat
 
   return { ok: true };
 })();
@@ -793,8 +793,8 @@ Use Google Calendar to schedule interviews directly, rather than just proposing 
 
 #### Prerequisites (3)
 
-- Google Calendar integration must be connected. Use `searchIntegrations({ query: "google calendar" })` to check availability.
-- If not connected, guide the user through setup: use `proposeIntegration`with connector ID`connector:ccfg_google-calendar_DDDBAC03DE404369B74F32E78D`.
+- Google Calendar integration must be connected. Use `searchIntegrations({ mode: "search", queries: ["google calendar"] })` to check availability.
+- Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`.
 
 - Use `listConnections('google-calendar')` inside `"use impure"` to get credentials once connected.
 
@@ -837,7 +837,7 @@ const result = await (async function() {
 
   // Use the Google Calendar API to check availability and create events
 
-  // Always use confirm_connector_operation before creating events
+  // Create events only after the user's explicit go-ahead in chat
 
   return { ok: true };
 })();
@@ -933,13 +933,13 @@ Task format (adapt to the platform):
 
 ###### Setup for any notification channel
 
-1. Use `searchIntegrations({ query: "[platform name]" })` to check availability
-2. If not connected, guide the user through setup with `proposeIntegration` using the connector ID from the table above
+1. Use `searchIntegrations({ mode: "search", queries: ["[platform name]"] })` to check availability
+2. Follow the returned status and exact ID: use `added` directly, call `addIntegration` for `not_added`, or call `ProposeIntegration` for `not_setup` or `requires_setup`
 
 3. Use `listConnections('[connection name]')` inside `"use impure"` to get credentials once connected
 4. Ask the user where to send notifications (channel, project, board, or database)
 
-5. Always use `confirm_connector_operation` before creating tasks or sending messages
+5. Always get the user's explicit go-ahead in chat before creating tasks or sending messages
 
 ```javascript
 
@@ -957,7 +957,7 @@ const result = await (async function() {
 
   // Use the platform's API to send messages or create tasks
 
-  // Always use confirm_connector_operation before write operations
+  // Write only after the user's explicit go-ahead in chat
 
   return { ok: true };
 })();

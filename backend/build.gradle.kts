@@ -28,7 +28,13 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.5")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+
+    // Week 2: Real-time WebSocket (STOMP)
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
+
+    // Week 2: OpenAPI / Swagger UI
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0")
 
     // Database
     implementation("org.flywaydb:flyway-core")

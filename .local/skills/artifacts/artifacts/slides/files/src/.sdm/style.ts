@@ -5,26 +5,18 @@ import {
   type Color,
   type Font,
   type Paint,
+  type RunStyle,
   type Stroke,
-  type TextRun,
   type Theme,
 } from './core/schema';
-
-function themeValue(
-  record: Record<string, string> | undefined,
-  token: string,
-): string | undefined {
-  return record !== undefined && Object.hasOwn(record, token)
-    ? record[token]
-    : undefined;
-}
+import {
+  effectiveRunStyleCss,
+  resolveTextColor,
+  resolveTextFont,
+} from './core/text/inlineStyles';
 
 export function resolveColor(color: Color, theme?: Theme): string {
-  if (color.kind === 'rgb') {
-    return color.value;
-  }
-
-  return themeValue(theme?.colors, color.token) ?? '#000000';
+  return resolveTextColor(color, theme);
 }
 
 export function resolvePaint(
@@ -59,14 +51,7 @@ export function resolveFont(
   font: Font | undefined,
   theme?: Theme,
 ): string | undefined {
-  if (!font) {
-    return undefined;
-  }
-  if (font.kind === 'family') {
-    return font.family;
-  }
-
-  return themeValue(theme?.fonts, font.token);
+  return resolveTextFont(font, theme);
 }
 
 export function resolveAssetSrc(
@@ -147,26 +132,6 @@ export function strokeToBorder(
   return `${stroke.widthPt * SDM_POINT_TO_UNIT}px ${dash} ${resolvePaint(stroke.color, stroke.opacity, theme)}`;
 }
 
-export function textRunStyle(run: TextRun, theme?: Theme): CSSProperties {
-  const sizePt = run.sizePt ?? 18;
-
-  return {
-    color: run.color ? resolveColor(run.color, theme) : undefined,
-    backgroundColor: run.highlight
-      ? resolveColor(run.highlight, theme)
-      : undefined,
-    fontFamily: resolveFont(run.font, theme),
-    fontSize: `calc(var(--sdm-fit, 1) * ${sizePt * SDM_POINT_TO_UNIT}px)`,
-    fontWeight: run.weight,
-    fontStyle: run.italic ? 'italic' : undefined,
-    textDecoration:
-      [run.underline ? 'underline' : '', run.strike ? 'line-through' : '']
-        .filter(Boolean)
-        .join(' ') || undefined,
-    letterSpacing:
-      run.letterSpacingPt === undefined
-        ? undefined
-        : `calc(var(--sdm-fit, 1) * ${run.letterSpacingPt * SDM_POINT_TO_UNIT}px)`,
-    whiteSpace: 'pre-wrap',
-  };
+export function textRunStyle(run: RunStyle, theme?: Theme): CSSProperties {
+  return effectiveRunStyleCss(run, theme);
 }

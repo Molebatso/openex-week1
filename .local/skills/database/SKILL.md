@@ -9,6 +9,8 @@ Use the project's pre-configured PostgreSQL database and execute SQL queries saf
 
 Every project comes with a PostgreSQL database already provisioned. There is no create-database step and no `createDatabase()` callback — the database always exists. Use `checkDatabase()` only to confirm it is reachable, then go straight to `executeSql()`.
 
+
+
 ## When to Use
 
 Use this skill when:
