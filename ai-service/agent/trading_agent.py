@@ -6,9 +6,9 @@ compose a final answer. Runs completely offline — no cloud AI.
 """
 
 from langchain_ollama import ChatOllama
-from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.prompts import PromptTemplate
 from langchain_core.tools import BaseTool
+from langchain.agents import AgentExecutor, create_react_agent
 
 import config
 
